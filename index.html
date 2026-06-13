@@ -6,6 +6,8 @@
     <meta name="theme-color" content="#05060a" />
     <title>SednaFinder</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
   </head>
   <body>
     <video id="cam" autoplay playsinline muted></video>
@@ -14,5 +16,10 @@
     <button id="start" class="start-btn">Tap to start</button>
     <section id="panel" class="panel hidden"></section>
     <script type="module" src="src/main.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+      }
+    </script>
   </body>
 </html>
