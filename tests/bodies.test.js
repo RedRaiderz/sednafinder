@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BODIES, EARTH } from '../src/data/bodies.js';
+import { equatorialFromBody } from '../src/astronomy/coords.js';
 
 test('Earth has J2000 epoch', () => {
   assert.equal(EARTH.epoch, 2451545.0);
@@ -20,7 +21,13 @@ test('every body has elements + facts', () => {
   }
 });
 
-test('Sedna semi-major axis is ~500 AU', () => {
+test('Sedna semi-major axis is in the expected outer-system range', () => {
   const sedna = BODIES.find((b) => b.name === 'Sedna');
-  assert.ok(sedna.a > 490 && sedna.a < 520, `a=${sedna.a}`);
+  assert.ok(sedna.a > 500 && sedna.a < 560, `a=${sedna.a}`);
+});
+
+test('Sedna app-data yields a plausible geocentric distance in 2026', () => {
+  const sedna = BODIES.find((b) => b.name === 'Sedna');
+  const { distAU } = equatorialFromBody(sedna, EARTH, 2461203.5); // 2026-06-12 00:00 UTC
+  assert.ok(distAU > 80 && distAU < 90, `distAU=${distAU}`);
 });

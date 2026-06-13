@@ -7,7 +7,9 @@ export const EARTH = {
 export const BODIES = [
   {
     name: 'Sedna', designation: '90377 Sedna', H: 1.5,
-    a: 506.0, e: 0.8496, i: 11.93, Om: 144.40, w: 311.46, M0: 358.20, epoch: 2451545.0,
+    // JPL SBDB osculating elements (epoch 2461200.5) — same source as the validated coords test.
+    a: 543.7195289104732, e: 0.8598824585187618, i: 11.92527582847476,
+    Om: 144.5061662673739, w: 311.0987725939751, M0: 358.5956944005428, epoch: 2461200.5,
     facts: {
       diameterKm: 1000, surfaceTempK: 12,
       discovery: '2003-11-14 by Brown, Trujillo & Rabinowitz',
