@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { equatorialFromBody } from '../src/astronomy/coords.js';
+import { localSiderealTime, raDecToAltAz } from '../src/astronomy/coords.js';
 
 const EARTH = { a: 1.00000261, e: 0.01671123, i: -0.00001531,
                 Om: 0.0, w: 102.93768193, M0: -2.47311027, epoch: 2451545.0 };
@@ -19,4 +20,16 @@ test('RA in [0,360), Dec in [-90,90]', () => {
   const { ra, dec } = equatorialFromBody(SEDNA, EARTH, jd);
   assert.ok(ra >= 0 && ra < 360);
   assert.ok(dec >= -90 && dec <= 90);
+});
+
+test('object at the celestial pole sits at altitude = latitude, due north', () => {
+  const lat = 45;
+  const { alt, az } = raDecToAltAz(123, 90, 200, lat); // dec=+90 -> RA/LST irrelevant
+  assert.ok(Math.abs(alt - lat) < 1e-6, `alt=${alt}`);
+  assert.ok(Math.abs(az - 0) < 1e-6 || Math.abs(az - 360) < 1e-6, `az=${az}`);
+});
+
+test('local sidereal time stays in [0,360)', () => {
+  const lst = localSiderealTime(2461203.5, -122.3);
+  assert.ok(lst >= 0 && lst < 360);
 });
