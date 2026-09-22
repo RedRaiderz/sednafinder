@@ -2,7 +2,8 @@ import { createModel, updateModel, enuFromAltAz, altAzFromEnu } from './sky/mode
 import { basisFromAltAz, projScale, dot } from './sky/view.js';
 import { createRenderer, drawSky } from './sky/render.js';
 import { loadSatellites, satState, isSunlit } from './sky/sats.js';
-import { startOrientation, getBasis, hasCompass, setTrim, getTrim } from './sensors/orientation.js';
+import { startOrientation, getBasis, hasCompass, setTrim, getTrim, setDeclination } from './sensors/orientation.js';
+import magvar from '../vendor/magvar.js';
 import { startCamera, stopCamera } from './sensors/camera.js';
 import { getLocation, loadSavedLocation, saveLocation, PRESETS } from './sensors/location.js';
 import { renderDetail, registerConstellations } from './ui/detail.js';
@@ -26,7 +27,7 @@ const st = {
   chart: { alt: 35, az: 180, fov: 95 },
   arFov: 62,
   live: true, fixed: new Date(), playing: false,
-  loc: loadSavedLocation() || { lat: 33.749, lon: -84.388, label: 'Atlanta (default)', approx: true },
+  loc: loadSavedLocation() || { lat: 40.4237, lon: -86.9212, label: 'no GPS yet — tap to set', approx: true },
   target: null, selected: null, tab: 'sky',
   findQuery: '', findGroup: 'all', calibrating: false, tween: null,
 };
@@ -46,7 +47,9 @@ async function boot() {
   requestAnimationFrame(frame);
   loadSatellites().then((sats) => { model.sats = sats; index = null; }).catch(() => {});
   // Refresh location quietly if the browser already has permission.
-  if (navigator.permissions) {
+  // Once location has been granted, refresh it on every launch so the chart follows you around.
+  if (st.loc.label === 'GPS') locate(false);
+  else if (navigator.permissions) {
     navigator.permissions.query({ name: 'geolocation' }).then((p) => { if (p.state === 'granted') locate(false); }).catch(() => {});
   }
   try { if (localStorage.getItem('sf.introDone')) { $('intro').classList.add('gone'); } } catch { /* */ }
@@ -66,14 +69,16 @@ async function locate(ask) {
   if (loc) { st.loc = loc; saveLocation(loc); updateWhere(); if (st.tab === 'tonight' || st.tab === 'setup') openTab(st.tab); }
   else if (ask) toast('Location unavailable — using the saved place. Change it in Setup.');
 }
+function declination() { try { return magvar.magvar(st.loc.lat, st.loc.lon) || 0; } catch { return 0; } }
 function updateWhere() {
   const l = st.loc;
+  setDeclination(declination());
   $('where').textContent = `${Math.abs(l.lat).toFixed(2)}° ${l.lat >= 0 ? 'N' : 'S'}, ${Math.abs(l.lon).toFixed(2)}° ${l.lon >= 0 ? 'E' : 'W'}${l.label ? ' · ' + l.label : ''}`;
 }
 
 // ---------- AR / camera ----------
 async function enterAR(withCamera) {
-  const res = await startOrientation();
+  const res = await startOrientation(declination());
   if (!res.ok) {
     toast(res.reason === 'denied' ? 'Motion access was denied. On iPhone: close the app, reopen it, and allow Motion & Orientation.'
       : 'This device has no motion sensors — the chart still works, drag to look around.');
@@ -136,10 +141,13 @@ function currentView() {
 }
 
 // ---------- frame ----------
-let lastClock = 0;
+let lastClock = 0, lastT = 0;
+const label = (o) => o.proper || o.name || o.code || o.designation || 'target';
 function frame(t) {
   requestAnimationFrame(frame);
-  if (st.playing) { st.fixed = new Date(+st.fixed + 10 * 60000 / 60); }
+  if (!model) return;
+  const dt = lastT ? Math.min(100, t - lastT) : 16; lastT = t;
+  if (st.playing) { st.fixed = new Date(+st.fixed + dt * 10); } // 10 min of sky per second
   const date = currentDate();
   updateModel(model, date, st.loc);
   updateSats(date, t);
@@ -186,7 +194,7 @@ function updateAim(view) {
     else { chip.innerHTML = `${F.esc(obj.proper || obj.name || obj.code)}<small>${obj.mag != null ? 'mag ' + obj.mag.toFixed(1) : obj.kind === 'con' ? 'constellation' : ''}</small>`; chip.classList.remove('hidden'); }
   }
   if (st.target && st.target.enu && dot(st.target.enu, view.f) > Math.cos(2 * D2R) && !st.targetHit) {
-    st.targetHit = true; if (navigator.vibrate) navigator.vibrate(30); toast(`You're on ${st.target.name}.`);
+    st.targetHit = true; if (navigator.vibrate) navigator.vibrate(30); toast(`You're on ${label(st.target)}.`);
   }
 }
 $('aimChip').addEventListener('click', () => { if (aimed) openDetail(aimed); });
@@ -213,7 +221,7 @@ sky.addEventListener('pointermove', (e) => {
     gesture.last = { x: e.clientX, y: e.clientY }; gesture.moved += Math.hypot(dx, dy);
     const view = currentView(); const radPerPx = 1 / projScale(view, R.H);
     if (st.mode === 'ar') {
-      if (st.calibrating) { S.trim = getTrim() + dx * radPerPx / D2R; setTrim(S.trim); }
+      if (st.calibrating) { S.trim = getTrim() - dx * radPerPx / D2R; setTrim(S.trim); }
     } else {
       st.chart.az = (st.chart.az - dx * radPerPx / D2R * 1.0 + 360) % 360;
       st.chart.alt = Math.max(-89, Math.min(89.9, st.chart.alt + dy * radPerPx / D2R));
@@ -223,9 +231,9 @@ sky.addEventListener('pointermove', (e) => {
 const endPtr = (e) => {
   if (!ptrs.has(e.pointerId)) return;
   ptrs.delete(e.pointerId);
-  if (gesture && gesture.type === 'pan' && gesture.moved < 8 && performance.now() - gesture.t0 < 400) tapAt(e.clientX, e.clientY);
+  if (e.type === 'pointerup' && gesture && gesture.type === 'pan' && gesture.moved < 8 && performance.now() - gesture.t0 < 400) tapAt(e.clientX, e.clientY);
   if (ptrs.size === 0) gesture = null;
-  else if (gesture && gesture.type === 'pinch') gesture = null;
+  else if (ptrs.size === 1) { const [p] = [...ptrs.values()]; gesture = { type: 'pan', x0: p.x, y0: p.y, t0: 0, moved: 99, last: { ...p } }; } // pinch -> keep panning with the remaining finger
 };
 sky.addEventListener('pointerup', endPtr); sky.addEventListener('pointercancel', endPtr);
 sky.addEventListener('wheel', (e) => { e.preventDefault(); st.chart.fov = Math.max(8, Math.min(150, st.chart.fov * Math.exp(e.deltaY * 0.001))); }, { passive: false });
@@ -241,7 +249,7 @@ function tapAt(x, y) {
 function pointAt(obj) {
   st.target = obj; st.targetHit = false;
   if (st.mode === 'chart') centerOn(obj);
-  else toast(`Follow the arrow to ${obj.proper || obj.name || obj.code}.`);
+  else toast(`Follow the arrow to ${label(obj)}.`);
 }
 function centerOn(obj) {
   if (!obj.enu) return;
@@ -275,7 +283,8 @@ function openTab(tab) {
     setTimeout(() => { try { const r = renderTonight(ctx()); if (st.tab === 'tonight') openSheet(r.html, r.after); } catch (err) { console.error(err); openSheet(`<p class="note">${F.esc(err.message || err)}</p>`); } }, 30);
   }
   if (tab === 'find') {
-    if (!index) index = searchIndex(model);
+    if (!model) return;
+    if (!index || index.satCount !== model.sats.length) { index = searchIndex(model); index.satCount = model.sats.length; }
     openSheet(renderFind(st), (root) => {
       const list = root.querySelector('#findList');
       const refresh = () => { list.innerHTML = renderFindList(index, st); };
@@ -310,10 +319,11 @@ function findById(id) {
 let grip = null;
 $('grip').addEventListener('pointerdown', (e) => { grip = { y0: e.clientY }; sheet.classList.add('dragging'); $('grip').setPointerCapture(e.pointerId); });
 $('grip').addEventListener('pointermove', (e) => { if (grip) sheet.style.transform = `translateY(${Math.max(0, e.clientY - grip.y0)}px)`; });
-$('grip').addEventListener('pointerup', (e) => {
+const gripEnd = (e) => {
   if (!grip) return; sheet.classList.remove('dragging'); sheet.style.transform = '';
-  if (e.clientY - grip.y0 > 80) closeSheet(); grip = null;
-});
+  if (e.type === 'pointerup' && e.clientY - grip.y0 > 80) closeSheet(); grip = null;
+};
+$('grip').addEventListener('pointerup', gripEnd); $('grip').addEventListener('pointercancel', gripEnd);
 
 // ---------- setup ----------
 function toggle(key, label) { return `<button class="toggle ${S[key] ? 'on' : ''}" data-key="${key}"><span>${label}</span><i></i></button>`; }
@@ -368,6 +378,7 @@ $('calibReset').addEventListener('click', () => { S.trim = 0; setTrim(0); });
 // ---------- time travel ----------
 const slider = $('timeSlider');
 let sliderBase = null;
+$('where').addEventListener('click', (e) => { e.stopPropagation(); openTab('setup'); });
 $('when').addEventListener('click', () => {
   const tb = $('timebar'); const show = tb.classList.contains('hidden');
   tb.classList.toggle('hidden', !show);

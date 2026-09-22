@@ -103,14 +103,14 @@ export function drawSky(R, model, view, opts, hits) {
     if (st.mag > magLimit) continue;
     if (!projectArr(view, E, st.idx * 3, W, H, s, P) || offscreen(P, W, H)) continue;
     hits.push({ obj: st, x: P.x, y: P.y, r: 14, pri: 1 });
-    if (opts.labels && st.proper && st.mag < labelMag(view.fov)) labels.push({ x: P.x + 7, y: P.y - 6, text: st.proper, kind: 'star' });
+    if (opts.labels && st.proper && st.mag < labelMag(view.fov)) labels.push({ x: P.x + 7, y: P.y - 6, text: st.proper, kind: 'star', u: E[st.idx * 3 + 2] });
   }
 
   // ---- constellation names ----
   if (opts.constellations && opts.labels) {
     for (const c of model.cons) {
       if (!project(view, c.enu, W, H, s, P) || offscreen(P, W, H)) continue;
-      labels.push({ x: P.x, y: P.y, text: c.name, kind: 'con', center: true, ar, fov: view.fov });
+      labels.push({ x: P.x, y: P.y, text: c.name, kind: 'con', center: true, ar, fov: view.fov, u: c.enu[2] });
       hits.push({ obj: c, x: P.x, y: P.y - 4, r: 22, pri: 0 });
     }
   }
@@ -122,7 +122,7 @@ export function drawSky(R, model, view, opts, hits) {
       if (!project(view, d.enu, W, H, s, P) || offscreen(P, W, H)) continue;
       drawDso(ctx, d, P.x, P.y, ar);
       hits.push({ obj: d, x: P.x, y: P.y, r: 14, pri: 2 });
-      if (opts.labels && (view.fov < 70 || d.mag < 5)) labels.push({ x: P.x + 8, y: P.y + 3, text: d.code, kind: 'dso' });
+      if (opts.labels && (view.fov < 70 || d.mag < 5)) labels.push({ x: P.x + 8, y: P.y + 3, text: d.code, kind: 'dso', u: d.enu[2] });
     }
   }
 
@@ -135,7 +135,7 @@ export function drawSky(R, model, view, opts, hits) {
       ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.arc(P.x, P.y, 7, 0, 7); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = '#f2b45a'; ctx.fillRect(P.x - 1, P.y - 1, 2, 2);
       hits.push({ obj: t, x: P.x, y: P.y, r: 16, pri: 3 });
-      if (opts.labels) labels.push({ x: P.x + 11, y: P.y + 4, text: t.name, kind: 'tno' });
+      if (opts.labels) labels.push({ x: P.x + 11, y: P.y + 4, text: t.name, kind: 'tno', u: t.enu[2] });
     }
   }
 
@@ -157,7 +157,7 @@ export function drawSky(R, model, view, opts, hits) {
       }
     }
     hits.push({ obj: b, x: P.x, y: P.y, r: Math.max(18, pxR + 6), pri: 5 });
-    if (opts.labels) labels.push({ x: P.x + pxR + 6, y: P.y + 4, text: b.name, kind: b.kind });
+    if (opts.labels) labels.push({ x: P.x + pxR + 6, y: P.y + 4, text: b.name, kind: b.kind, u: b.enu[2] });
   }
 
   // ---- satellites ----
@@ -170,7 +170,7 @@ export function drawSky(R, model, view, opts, hits) {
       ctx.strokeStyle = lit ? 'rgba(160,230,220,0.95)' : 'rgba(160,230,220,0.35)'; ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(P.x - 5, P.y); ctx.lineTo(P.x + 5, P.y); ctx.moveTo(P.x, P.y - 5); ctx.lineTo(P.x, P.y + 5); ctx.stroke();
       hits.push({ obj: sat, x: P.x, y: P.y, r: 16, pri: 4 });
-      if (opts.labels && (sat.featured || view.fov < 60)) labels.push({ x: P.x + 8, y: P.y - 6, text: sat.name, kind: 'sat' });
+      if (opts.labels && (sat.featured || view.fov < 60)) labels.push({ x: P.x + 8, y: P.y - 6, text: sat.name, kind: 'sat', u: sat.enu[2] });
     }
   }
 
@@ -318,6 +318,7 @@ function drawLabels(ctx, labels, W, H) {
   const order = { sun: 0, moon: 0, planet: 1, tno: 2, sat: 3, star: 4, dso: 5, con: 6 };
   labels.sort((a, b) => order[a.kind] - order[b.kind]);
   for (const l of labels) {
+    if (l.u < -0.005) continue; // under the ground: the marker is hidden, so is the label
     const big = l.kind === 'planet' || l.kind === 'moon' || l.kind === 'sun';
     ctx.font = l.kind === 'con' ? `italic 400 ${l.fov > 100 ? 12 : 14}px ${FONT_SERIF}` : big ? `500 13px ${FONT_UI}` : l.kind === 'dso' ? `400 10px ${FONT_MONO}` : `400 11.5px ${FONT_UI}`;
     const w = ctx.measureText(l.text).width, h = 13;
@@ -347,6 +348,6 @@ function drawEdgeArrow(ctx, view, target, W, H) {
   ctx.font = `500 11px ${FONT_MONO}`; ctx.fillStyle = '#f2b45a';
   ctx.textAlign = d.dx > 0.3 ? 'right' : d.dx < -0.3 ? 'left' : 'center';
   const tx = x - d.dx * 22, ty = y - d.dy * 22 + 4;
-  ctx.fillText(target.name.toUpperCase(), tx, ty);
+  ctx.fillText(String(target.proper || target.name || target.code || target.designation || '').toUpperCase(), tx, ty);
   ctx.textAlign = 'left';
 }

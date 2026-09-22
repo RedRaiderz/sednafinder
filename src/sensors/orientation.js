@@ -28,39 +28,72 @@ export function cameraDirection(alphaDeg, betaDeg, gammaDeg) {
   return { az: (Math.atan2(f[0], f[1]) * R2D + 360) % 360, alt: Math.asin(Math.max(-1, Math.min(1, f[2]))) * R2D };
 }
 
+// Rotate a basis about Up so every azimuth increases by `deg`.
+export function yawBasis(b, deg) {
+  const t = deg * D2R, c = Math.cos(t), s = Math.sin(t);
+  const rot = (v) => [v[0] * c + v[1] * s, -v[0] * s + v[1] * c, v[2]];
+  return { f: rot(b.f), r: rot(b.r), u: rot(b.u) };
+}
+const yawOf = (v) => (Math.atan2(v[0], v[1]) * R2D + 360) % 360;
+
+// North offset for iOS: webkitCompassHeading is the (magnetic) heading of the device top when
+// the phone is flat and of the rear camera when it is held up. Measure that same axis in the
+// raw, arbitrarily-oriented alpha frame; the offset is the difference. Pure, for tests.
+export function compassOffset(alphaDeg, betaDeg, gammaDeg, headingDeg, declinationDeg = 0) {
+  // Only trust poses where iOS's reference axis is unambiguous: lying face-up (top edge) or held
+  // roughly upright (camera). Tilted toward the zenith the two conventions differ by 180°, so we
+  // hold the last offset there — the gyro frame it corrects doesn't move.
+  const { Y, Z } = deviceAxes(alphaDeg, betaDeg, gammaDeg);
+  let axis;
+  if (Z[2] > 0.9) axis = Y;
+  else if (Math.abs(Z[2]) < 0.45) axis = [-Z[0], -Z[1], -Z[2]];
+  else return null;
+  if (Math.hypot(axis[0], axis[1]) < 0.2) return null;
+  return wrap(headingDeg + declinationDeg - yawOf(axis));
+}
+
 // --- live sensor glue (browser only) ---
 const state = {
-  basis: null, raw: null, northOffset: null, trim: 0, compass: false, events: 0, absolute: false,
+  basis: null, northOffset: null, rejects: 0, trim: 0, compass: false, events: 0, absolute: false, declination: 0,
 };
-const SMOOTH = 0.22;       // basis low-pass per event
-const OFFSET_SMOOTH = 0.03; // compass offset is noisy; follow it slowly
+const SMOOTH = 0.22;        // basis low-pass per event
+const OFFSET_SMOOTH = 0.05; // compass offset is noisy; follow it slowly
 
 function screenAngle() {
   if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
   return typeof window.orientation === 'number' ? window.orientation : 0;
 }
-function wrap(d) { return ((d + 540) % 360) - 180; }
+function wrap(d) { return ((d % 360) + 540) % 360 - 180; }
 
 function onEvent(e) {
   if (e.alpha == null && e.beta == null) return;
   state.events++;
-  let alpha = e.alpha || 0;
-  if (typeof e.webkitCompassHeading === 'number' && e.webkitCompassHeading >= 0) {
-    // iOS: alpha is relative to an arbitrary start; the compass tells us true north.
-    // heading == 360 - alpha_true for the axis alpha tracks, so offset = (360 - heading) - alpha.
+  const alpha = e.alpha || 0, beta = e.beta || 0, gamma = e.gamma || 0;
+  let yaw = 0;
+  if (typeof e.webkitCompassHeading === 'number') {
     state.compass = true;
-    const target = wrap(360 - e.webkitCompassHeading - alpha);
-    state.northOffset = state.northOffset == null ? target : state.northOffset + OFFSET_SMOOTH * wrap(target - state.northOffset);
-    alpha += state.northOffset;
+    if (e.webkitCompassHeading >= 0) {
+      const target = compassOffset(alpha, beta, gamma, e.webkitCompassHeading, state.declination);
+      if (target != null) {
+        if (state.northOffset == null) state.northOffset = target;
+        else {
+          const d = wrap(target - state.northOffset);
+          // A big jump is a pose where the heading axis switched or flipped — ignore it, unless it persists.
+          if (Math.abs(d) > 60 && ++state.rejects < 45) { /* skip */ }
+          else { state.rejects = 0; state.northOffset = wrap(state.northOffset + (Math.abs(d) > 60 ? d : OFFSET_SMOOTH * d)); }
+        }
+      }
+    }
+    yaw = state.northOffset || 0; // keep the last good offset while the compass is uncalibrated (-1)
   } else if (e.absolute || e.type === 'deviceorientationabsolute') {
     state.compass = true; state.absolute = true;
+    // absolute streams are already true-north referenced
   } else if (state.absolute) {
     return; // prefer the absolute stream once we have it
   }
-  alpha += state.trim;
-  const nb = cameraBasis(alpha, e.beta || 0, e.gamma || 0, screenAngle());
-  if (!state.basis) { state.basis = nb; return; }
+  const nb = yawBasis(cameraBasis(alpha, beta, gamma, screenAngle()), yaw + state.trim);
   const b = state.basis;
+  if (!b || b.f[0] * nb.f[0] + b.f[1] * nb.f[1] + b.f[2] * nb.f[2] < 0.5) { state.basis = nb; return; } // big jump: snap
   const lerp = (p, q) => [p[0] + SMOOTH * (q[0] - p[0]), p[1] + SMOOTH * (q[1] - p[1]), p[2] + SMOOTH * (q[2] - p[2])];
   const f = normalize(lerp(b.f, nb.f));
   const u0 = normalize(lerp(b.u, nb.u));
@@ -68,20 +101,25 @@ function onEvent(e) {
   state.basis = { f, r, u: cross(r, f) };
 }
 
-export async function startOrientation() {
+export async function startOrientation(declinationDeg = 0) {
+  state.declination = declinationDeg; state.basis = null;
   const Evt = window.DeviceOrientationEvent;
   if (!Evt) return { ok: false, reason: 'unsupported' };
   if (typeof Evt.requestPermission === 'function') {
     try { if ((await Evt.requestPermission()) !== 'granted') return { ok: false, reason: 'denied' }; }
     catch { return { ok: false, reason: 'denied' }; }
   }
-  if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', onEvent, true);
-  window.addEventListener('deviceorientation', onEvent, true);
+  if (!state.listening) {
+    if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', onEvent, true);
+    window.addEventListener('deviceorientation', onEvent, true);
+    state.listening = true;
+  }
   // Give the sensor a moment to report so we can tell a laptop (no events) from a phone.
   await new Promise((r) => setTimeout(r, 700));
   return state.events > 0 ? { ok: true } : { ok: false, reason: 'no-sensor' };
 }
 
+export function setDeclination(d) { state.declination = d; }
 export function getBasis() { return state.basis; }
 export function hasCompass() { return state.compass; }
 export function setTrim(deg) { state.trim = deg; }
