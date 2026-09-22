@@ -1,0 +1,40 @@
+// Reference facts for the Sun, Moon and planets. Radii drive angular size.
+export const SOLAR_FACTS = {
+  Sun: { kind: 'star', radiusKm: 695700, color: '#ffd9a0',
+    rows: [['Type', 'G2V main-sequence star'], ['Diameter', '1,392,700 km'], ['Surface', '5,772 K'],
+      ['Age', '4.6 billion years'], ['Rotation', '25 d (equator) · 35 d (poles)']],
+    blurb: 'Never point anything optical at it without a certified solar filter. The marker is for knowing where it is, not for looking.' },
+  Moon: { kind: 'moon', radiusKm: 1737.4, color: '#e9e4d6',
+    rows: [['Diameter', '3,474 km'], ['Orbit', '27.32 d sidereal · 29.53 d synodic'],
+      ['Surface', '−173 °C to 127 °C'], ['Gravity', '1.62 m/s² (0.17 g)']],
+    blurb: 'Tidally locked — the same face always points at us. It drifts away about 3.8 cm a year.' },
+  Mercury: { kind: 'planet', radiusKm: 2439.7, color: '#c9bfb2',
+    rows: [['Diameter', '4,879 km'], ['Year', '88 days'], ['Day (solar)', '176 Earth days'], ['Moons', '0'], ['Surface', '−173 °C to 427 °C']],
+    blurb: 'Never strays more than 28° from the Sun, so you only catch it low in twilight.' },
+  Venus: { kind: 'planet', radiusKm: 6051.8, color: '#f4ecd2',
+    rows: [['Diameter', '12,104 km'], ['Year', '225 days'], ['Day', '243 days (retrograde)'], ['Moons', '0'], ['Surface', '464 °C']],
+    blurb: 'Brightest thing in the sky after the Sun and Moon. Shows phases like the Moon in any small telescope.' },
+  Mars: { kind: 'planet', radiusKm: 3389.5, color: '#e0835a',
+    rows: [['Diameter', '6,779 km'], ['Year', '687 days'], ['Day', '24 h 37 m'], ['Moons', '2 (Phobos, Deimos)'], ['Surface', '−63 °C avg']],
+    blurb: 'Brightness swings hard with distance — dazzling at opposition, unremarkable when it is behind the Sun.' },
+  Jupiter: { kind: 'planet', radiusKm: 69911, color: '#e8d2b0',
+    rows: [['Diameter', '139,820 km'], ['Year', '11.9 years'], ['Day', '9 h 56 m'], ['Moons', '95 known'], ['Cloud tops', '−110 °C']],
+    blurb: 'Binoculars held steady show up to four of its moons as a line of points either side.' },
+  Saturn: { kind: 'planet', radiusKm: 58232, color: '#e6cf98',
+    rows: [['Diameter', '116,460 km'], ['Year', '29.4 years'], ['Day', '10 h 33 m'], ['Moons', '274 known'], ['Cloud tops', '−140 °C']],
+    blurb: 'Any telescope at 25× shows the rings. The tilt of the rings changes over a 15-year cycle.' },
+  Uranus: { kind: 'planet', radiusKm: 25362, color: '#b5e3e8',
+    rows: [['Diameter', '50,724 km'], ['Year', '84 years'], ['Day', '17 h 14 m'], ['Moons', '28 known'], ['Axial tilt', '98°']],
+    blurb: 'Technically naked-eye under perfectly dark skies; binoculars make it an easy blue-green point.' },
+  Neptune: { kind: 'planet', radiusKm: 24622, color: '#7fa4f0',
+    rows: [['Diameter', '49,244 km'], ['Year', '165 years'], ['Day', '16 h 6 m'], ['Moons', '16 known'], ['Winds', 'up to 2,100 km/h']],
+    blurb: 'Found by math before anyone saw it — its pull on Uranus gave it away in 1846.' },
+};
+
+// Recurring meteor showers: [name, peak month (1-12), peak day, ZHR, radiant constellation]
+export const METEOR_SHOWERS = [
+  ['Quadrantids', 1, 3, 110, 'Boötes'], ['Lyrids', 4, 22, 18, 'Lyra'], ['Eta Aquariids', 5, 6, 50, 'Aquarius'],
+  ['Southern Delta Aquariids', 7, 30, 25, 'Aquarius'], ['Perseids', 8, 12, 100, 'Perseus'],
+  ['Draconids', 10, 8, 10, 'Draco'], ['Orionids', 10, 21, 20, 'Orion'], ['Leonids', 11, 17, 15, 'Leo'],
+  ['Geminids', 12, 14, 150, 'Gemini'], ['Ursids', 12, 22, 10, 'Ursa Minor'],
+];

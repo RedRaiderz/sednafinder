@@ -1,26 +1,27 @@
-// Resolve the observer's location. Tries GPS; falls back to a manual prompt.
-// Returns { lat, lon } in degrees (lon east-positive).
-export async function getLocation() {
-  if (navigator.geolocation) {
-    try {
-      const pos = await new Promise((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: false, timeout: 8000, maximumAge: 600000,
-        })
-      );
-      return { lat: pos.coords.latitude, lon: pos.coords.longitude };
-    } catch {
-      /* fall through to manual */
-    }
+// Observer location: GPS when allowed, otherwise the last saved place or a preset.
+// { lat, lon } in degrees, longitude east-positive.
+export const PRESETS = [
+  { lat: 33.749, lon: -84.388, label: 'Atlanta' },
+  { lat: 40.4237, lon: -86.9212, label: 'West Lafayette' },
+];
+
+export async function getLocation(ask = true) {
+  if (!navigator.geolocation) return null;
+  try {
+    const pos = await new Promise((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: false, timeout: ask ? 12000 : 6000, maximumAge: 10 * 60000,
+      })
+    );
+    return { lat: pos.coords.latitude, lon: pos.coords.longitude, elev: pos.coords.altitude || 0, label: 'GPS' };
+  } catch {
+    return null;
   }
-  return manualLocation();
 }
 
-function manualLocation() {
-  const raw = window.prompt(
-    'Location unavailable. Enter "latitude, longitude" (e.g. 47.6, -122.3):',
-    '0, 0'
-  );
-  const [lat, lon] = (raw || '0,0').split(',').map((s) => parseFloat(s.trim()));
-  return { lat: Number.isFinite(lat) ? lat : 0, lon: Number.isFinite(lon) ? lon : 0 };
+export function loadSavedLocation() {
+  try { const l = JSON.parse(localStorage.getItem('sf.loc') || 'null'); return l && Number.isFinite(l.lat) ? l : null; } catch { return null; }
+}
+export function saveLocation(loc) {
+  try { localStorage.setItem('sf.loc', JSON.stringify(loc)); } catch { /* storage blocked */ }
 }

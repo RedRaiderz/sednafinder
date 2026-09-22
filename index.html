@@ -2,19 +2,86 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#05060a" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#06080f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Sedna" />
     <title>SednaFinder</title>
+    <link rel="stylesheet" href="fonts/fonts.css" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="manifest" href="manifest.json" />
-    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
+    <link rel="icon" href="icons/icon-192.png" />
   </head>
   <body>
     <video id="cam" autoplay playsinline muted></video>
-    <canvas id="overlay"></canvas>
-    <div id="reticle"></div>
-    <button id="start" class="start-btn">Tap to start</button>
-    <section id="panel" class="panel hidden"></section>
+    <canvas id="sky"></canvas>
+
+    <header class="hud">
+      <button class="when" id="when" aria-label="Change time">
+        <span class="when-date" id="whenDate">—</span>
+        <span class="when-time"><b id="whenTime">—</b><i id="whenTag">LIVE</i></span>
+        <span class="where" id="where">locating…</span>
+      </button>
+      <div class="hud-actions">
+        <button class="ic" id="btnAR" aria-label="Point at the sky" title="Point at the sky">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 5.5l2.2 6.5L12 18.5 9.8 12z" class="fill"/></svg>
+        </button>
+        <button class="ic" id="btnCam" aria-label="Camera" title="Camera behind the chart">
+          <svg viewBox="0 0 24 24"><path d="M4 8.5h3l1.6-2.2h6.8L17 8.5h3v10H4z"/><circle cx="12" cy="13.3" r="3.2"/></svg>
+        </button>
+        <button class="ic" id="btnRed" aria-label="Night vision" title="Night vision (red)">
+          <svg viewBox="0 0 24 24"><path d="M15.5 4.5a8 8 0 1 0 4 10.4A6.5 6.5 0 0 1 15.5 4.5z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="reticle" class="reticle hidden"><span></span></div>
+    <button id="aimChip" class="aim-chip hidden"></button>
+    <div id="calib" class="calib hidden">
+      <p>Drag sideways until a planet or the Moon sits on its marker.</p>
+      <div><button id="calibReset" class="ghost">Reset</button><button id="calibDone" class="solid">Done</button></div>
+    </div>
+
+    <section id="timebar" class="timebar hidden" aria-label="Time travel">
+      <input id="timeSlider" type="range" min="-720" max="720" step="5" value="0" aria-label="Hours from now" />
+      <div class="time-steps">
+        <button data-step="-1440">−1d</button><button data-step="-60">−1h</button>
+        <button id="timePlay" aria-label="Play">▶</button>
+        <button id="timeNow" class="now">Now</button>
+        <button data-step="60">+1h</button><button data-step="1440">+1d</button>
+      </div>
+    </section>
+
+    <section id="sheet" class="sheet" aria-live="polite">
+      <div class="grip" id="grip"><span></span></div>
+      <div class="sheet-body" id="sheetBody"></div>
+    </section>
+
+    <nav class="tabs" id="tabs">
+      <button data-tab="sky" class="on">Sky</button>
+      <button data-tab="tonight">Tonight</button>
+      <button data-tab="find">Find</button>
+      <button data-tab="setup">Setup</button>
+    </nav>
+
+    <div id="toast" class="toast"></div>
+    <div id="redmask" class="redmask"></div>
+
+    <div id="intro" class="intro">
+      <div class="intro-inner">
+        <p class="kicker">Field chart · v2</p>
+        <h1>SednaFinder</h1>
+        <p class="lede">Everything overhead — stars, planets, the Moon, deep-sky objects, the ISS — and the far worlds you'll never see with your eyes, Sedna first among them.</p>
+        <button id="startAR" class="solid big">Point at the sky</button>
+        <button id="startChart" class="ghost big">Just browse the chart</button>
+        <p class="fine">Pointing mode asks for motion, and location. Nothing leaves your phone.</p>
+      </div>
+    </div>
+
+    <script src="vendor/satellite.min.js"></script>
     <script type="module" src="src/main.js"></script>
     <script>
       if ('serviceWorker' in navigator) {

@@ -1,12 +1,16 @@
 {
   "name": "SednaFinder",
-  "short_name": "SednaFinder",
-  "start_url": ".",
+  "short_name": "Sedna",
+  "description": "A field chart for the whole sky — planets, stars, deep sky, the ISS, and the far worlds.",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#05060a",
-  "theme_color": "#05060a",
+  "orientation": "any",
+  "background_color": "#06080f",
+  "theme_color": "#06080f",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
