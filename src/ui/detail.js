@@ -115,6 +115,7 @@ function tnoDetail(t, loc, now) {
   let html = header(`${t.el.status} · in ${con}`, t.name, t.el.designation);
   html += stats([[t.mag.toFixed(1), 'Magnitude'], [F.deg(t.alt), 'Altitude'], [t.distAU.toFixed(1), 'AU away']]);
   html += visLine(t.alt, rs, now) + actions;
+  if (t.name === 'Sedna') html += `<div class="actions"><button class="solid" data-act="ultra">Ultramag</button></div>`;
   html += `<p class="blurb">${F.esc(f.blurb)}</p>`;
   html += `<p class="note">Magnitude ${t.mag.toFixed(1)}: ${F.visibilityClass(t.mag).toLowerCase()}. The marker shows where it actually is. The sunlight it reflects takes ${F.lightTime(t.distAU).replace('light-', '')} to reach you.</p>`;
   html += `<p class="section">Tonight</p>` + riseSetRows(rs, now);

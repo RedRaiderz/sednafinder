@@ -9,6 +9,7 @@ import { startCamera, stopCamera } from './sensors/camera.js';
 import { getLocation, loadSavedLocation, saveLocation, PRESETS } from './sensors/location.js';
 import { renderDetail, registerConstellations } from './ui/detail.js';
 import { renderTonight } from './ui/tonight.js';
+import { openUltramag, ultramagOpen } from './ui/ultramag.js';
 import { searchIndex, renderFind, renderFindList } from './ui/find.js';
 import * as F from './ui/format.js';
 
@@ -58,7 +59,7 @@ async function boot() {
   if (S.telemetry) startTelemetry().then(updateMarkBtn);
 }
 boot();
-export const APP_VERSION = '2.7.0';
+export const APP_VERSION = '2.8.0';
 window.sf = { st, S }; // handy from the console
 
 function currentDate() { return st.live ? new Date() : st.fixed; }
@@ -172,7 +173,7 @@ let lastClock = 0, lastT = 0;
 const label = (o) => o.proper || o.name || o.code || o.designation || 'target';
 function frame(t) {
   requestAnimationFrame(frame);
-  if (!model) return;
+  if (!model || ultramagOpen()) return;
   const dt = lastT ? Math.min(100, t - lastT) : 16; lastT = t;
   if (st.playing) { st.fixed = new Date(+st.fixed + dt * 10); } // 10 min of sky per second
   const date = currentDate();
@@ -305,6 +306,7 @@ function tapAt(x, y) {
 }
 
 // ---------- navigation to a target ----------
+$('ultraBtn').addEventListener('click', () => { if (model) { closeSheet(); openUltramag(model, currentDate()); } });
 $('findSedna').addEventListener('click', () => {
   const sedna = model && model.tnos.find((t) => t.name === 'Sedna'); if (!sedna) return;
   st.tab = 'sky'; closeSheet(); pointAt(sedna);
@@ -372,6 +374,7 @@ body.addEventListener('click', (e) => {
   if (open) { const obj = findById(open.dataset.open); if (obj) openDetail(obj); return; }
   const act = e.target.closest('[data-act]');
   if (!act || !st.selected) return;
+  if (act.dataset.act === 'ultra') { closeSheet(); openUltramag(model, currentDate()); return; }
   if (act.dataset.act === 'point') { pointAt(st.selected); sheet.classList.remove('open'); setTabUI('sky'); }
   if (act.dataset.act === 'center') { if (st.mode === 'ar') exitAR(); st.target = st.selected; centerOn(st.selected); sheet.classList.remove('open'); setTabUI('sky'); }
 });
