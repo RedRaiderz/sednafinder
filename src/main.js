@@ -2,7 +2,8 @@ import { createModel, updateModel, enuFromAltAz, altAzFromEnu } from './sky/mode
 import { basisFromAltAz, projScale, dot } from './sky/view.js';
 import { createRenderer, drawSky } from './sky/render.js';
 import { loadSatellites, satState, isSunlit } from './sky/sats.js';
-import { startOrientation, getBasis, hasCompass, setTrim, getTrim, setDeclination } from './sensors/orientation.js';
+import { startOrientation, getBasis, hasCompass, setTrim, getTrim, setDeclination, sensorDebug } from './sensors/orientation.js';
+import { startTelemetry, stopTelemetry, telemetryOn, telemetryStatus, sample, mark } from './sensors/telemetry.js';
 import magvar from '../vendor/magvar.js';
 import { startCamera, stopCamera } from './sensors/camera.js';
 import { getLocation, loadSavedLocation, saveLocation, PRESETS } from './sensors/location.js';
@@ -16,7 +17,7 @@ const D2R = Math.PI / 180;
 
 // ---------- persistent settings ----------
 const DEFAULTS = { constellations: true, labels: true, deepSky: true, tnos: true, sats: true, grid: false, ecliptic: false,
-  magLimit: 5.5, camFov: 67, red: false, trim: 0 };
+  magLimit: 5.5, camFov: 67, red: false, trim: 0, telemetry: false };
 function loadSettings() { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('sf.settings') || '{}') }; } catch { return { ...DEFAULTS }; } }
 function saveSettings() { try { localStorage.setItem('sf.settings', JSON.stringify(S)); } catch { /* private mode */ } }
 const S = loadSettings();
@@ -53,6 +54,7 @@ async function boot() {
     navigator.permissions.query({ name: 'geolocation' }).then((p) => { if (p.state === 'granted') locate(false); }).catch(() => {});
   }
   try { if (localStorage.getItem('sf.introDone')) { $('intro').classList.add('gone'); } } catch { /* */ }
+  if (S.telemetry) startTelemetry().then(updateMarkBtn);
 }
 boot();
 window.sf = { st, S }; // handy from the console
@@ -85,7 +87,7 @@ async function enterAR(withCamera) {
     return false;
   }
   st.mode = 'ar'; st.tween = null; keepAwake(true);
-  $('btnAR').classList.add('on'); $('reticle').classList.remove('hidden');
+  $('btnAR').classList.add('on'); $('reticle').classList.remove('hidden'); updateMarkBtn();
   setTimeout(() => { if (st.mode === 'ar' && !hasCompass()) toast('No compass reported — directions may drift. Use Setup → Calibrate.'); }, 1500);
   if (withCamera) await setCamera(true);
   return true;
@@ -93,7 +95,7 @@ async function enterAR(withCamera) {
 function exitAR() {
   st.mode = 'chart'; $('btnAR').classList.remove('on'); $('reticle').classList.add('hidden'); $('aimChip').classList.add('hidden');
   const b = getBasis(); if (b) { const { alt, az } = altAzFromEnu(b.f); st.chart.alt = alt; st.chart.az = az; }
-  setCamera(false); endCalibrate(); keepAwake(false);
+  setCamera(false); endCalibrate(); keepAwake(false); updateMarkBtn();
 }
 // Stop the screen dimming while you're holding the phone up to the sky.
 let wakeLock = null;
@@ -154,7 +156,7 @@ function frame(t) {
   if (st.tween) stepTween(t);
   const view = currentView();
   drawSky(R, model, view, { ...S, camera: st.camera, target: st.target }, hits);
-  if (st.mode === 'ar') updateAim(view);
+  if (st.mode === 'ar') { updateAim(view); sample(t, () => telemetryFrame(view)); }
   if (t - lastClock > 500) { lastClock = t; updateClock(date); }
 }
 
@@ -179,6 +181,32 @@ function updateClock(date) {
   else { const m = Math.round((date - Date.now()) / 60000); tag.textContent = (m >= 0 ? '+' : '−') + fmtOffset(Math.abs(m)); tag.classList.add('off'); }
 }
 function fmtOffset(m) { return m >= 1440 ? `${(m / 1440).toFixed(m % 1440 ? 1 : 0)}D` : m >= 60 ? `${Math.floor(m / 60)}H${m % 60 ? String(m % 60).padStart(2, '0') : ''}` : `${m}M`; }
+
+// ---------- field telemetry ----------
+const r2 = (x) => (x == null ? null : Math.round(x * 100) / 100);
+function camAltAz(view) { const { alt, az } = altAzFromEnu(view.f); return { alt: r2(alt), az: r2(az) }; }
+function bodiesUp() {
+  return model.solar.filter((b) => b.alt > -5).map((b) => ({ name: b.name, alt: r2(b.alt), az: r2(b.az) }));
+}
+function telemetryFrame(view) {
+  const v = $('cam');
+  return { t: Date.now(), mode: st.mode, camera: st.camera, cam: camAltAz(view), up: view.u.map(r2), fov: r2(view.fov),
+    camFovSetting: S.camFov, screen: [R.W, R.H], video: [v.videoWidth || 0, v.videoHeight || 0],
+    sensor: sensorDebug(), loc: { lat: st.loc.lat, lon: st.loc.lon, label: st.loc.label },
+    aimed: aimed ? label(aimed) : null, target: st.target ? label(st.target) : null, bodies: bodiesUp() };
+}
+function updateMarkBtn() { $('markBtn').classList.toggle('hidden', !(telemetryOn() && st.mode === 'ar')); }
+$('markBtn').addEventListener('click', () => {
+  const view = currentView(); if (!model) return;
+  // Nearest solar-system body to the reticle is almost certainly what the user lined up.
+  let best = null, bd = Infinity;
+  for (const b of model.solar) { if (b.alt < -5) continue; const d = Math.acos(Math.max(-1, Math.min(1, dot(b.enu, view.f)))) / D2R; if (d < bd) { bd = d; best = b; } }
+  const cam = camAltAz(view);
+  const err = best ? { name: best.name, sep: r2(bd), dAz: r2(((cam.az - best.az + 540) % 360) - 180), dAlt: r2(cam.alt - best.alt) } : null;
+  mark({ t: Date.now(), cam, fov: r2(view.fov), sensor: sensorDebug(), bodies: bodiesUp(), nearest: err, frame: telemetryFrame(view) });
+  if (navigator.vibrate) navigator.vibrate(20);
+  toast(err ? `Marked ${err.name}: app is off by ${err.sep.toFixed(1)}° (az ${err.dAz >= 0 ? '+' : ''}${err.dAz.toFixed(1)}°, alt ${err.dAlt >= 0 ? '+' : ''}${err.dAlt.toFixed(1)}°)` : 'Marked.');
+});
 
 // ---------- AR aiming ----------
 let aimed = null;
@@ -347,12 +375,19 @@ function renderSetup() {
     <p class="section">Camera field of view · <span id="fovV">${S.camFov}</span>°</p>
     <input class="range" id="fovIn" type="range" min="45" max="90" step="1" value="${S.camFov}">
     <p class="note">If markers drift outward from what you see, lower this; if they bunch toward the centre, raise it. iPhone main camera ≈ 67.</p>
+    <p class="section">Field telemetry</p>
+    ${toggle('telemetry', 'Send sensor data to Solace')}
+    <p class="note" id="telemV">${S.telemetry ? 'Status: ' + F.esc(telemetryStatus().status) + ' · ' + telemetryStatus().sent + ' samples sent' : 'Off. Needs Tailscale on. Streams compass/tilt/view data while pointing so the aiming can be tuned; in pointing mode, put the real Moon or a planet in the reticle and tap “I’m on it”.'}</p>
     <p class="section">About</p>
     <p class="note">Positions from astronomy-engine (VSOP87 / Meeus lunar theory), stars from the HYG catalogue, deep sky from OpenNGC, satellites from CelesTrak (refreshed daily), far-frontier orbits from JPL small-body elements. Works offline after the first load, except satellite updates.</p>`;
 }
 function wireSetup(root) {
   root.querySelectorAll('.toggle').forEach((b) => b.addEventListener('click', () => {
     const k = b.dataset.key; S[k] = !S[k]; b.classList.toggle('on', S[k]); saveSettings(); if (k === 'red') applyRed();
+    if (k === 'telemetry') {
+      if (S.telemetry) startTelemetry().then((s) => { updateMarkBtn(); toast('Telemetry: ' + s); if (st.tab === 'setup') openTab('setup'); });
+      else { stopTelemetry(); updateMarkBtn(); openTab('setup'); }
+    }
   }));
   root.querySelector('#magIn').addEventListener('input', (e) => { S.magLimit = +e.target.value; root.querySelector('#magV').textContent = S.magLimit.toFixed(1); saveSettings(); });
   root.querySelector('#fovIn').addEventListener('input', (e) => { S.camFov = +e.target.value; root.querySelector('#fovV').textContent = S.camFov; saveSettings(); });

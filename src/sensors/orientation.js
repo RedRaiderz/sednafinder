@@ -69,6 +69,8 @@ function onEvent(e) {
   if (e.alpha == null && e.beta == null) return;
   state.events++;
   const alpha = e.alpha || 0, beta = e.beta || 0, gamma = e.gamma || 0;
+  state.raw = { type: e.type, alpha: e.alpha, beta: e.beta, gamma: e.gamma, abs: !!e.absolute,
+    hdg: e.webkitCompassHeading, hdgAcc: e.webkitCompassAccuracy, t: performance.now() };
   let yaw = 0;
   if (typeof e.webkitCompassHeading === 'number') {
     state.compass = true;
@@ -124,3 +126,8 @@ export function getBasis() { return state.basis; }
 export function hasCompass() { return state.compass; }
 export function setTrim(deg) { state.trim = deg; }
 export function getTrim() { return state.trim; }
+// Snapshot for telemetry: last raw event + the fused state it produced.
+export function sensorDebug() {
+  return { raw: state.raw || null, northOffset: state.northOffset, rejects: state.rejects, trim: state.trim,
+    decl: state.declination, absolute: state.absolute, events: state.events, screen: screenAngle() };
+}

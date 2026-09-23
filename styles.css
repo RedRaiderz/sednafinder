@@ -53,6 +53,8 @@ body.camera #cam { opacity: 1; }
 .aim-chip { position: fixed; left: 50%; top: calc(50% + 46px); transform: translateX(-50%); z-index: 4;
   font: 500 13px var(--sans); padding: 8px 12px; background: var(--panel); outline: 1px solid var(--line);
   border-radius: 3px; white-space: nowrap; }
+.mark-btn { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 76px); transform: translateX(-50%); z-index: 5;
+  font: 500 14px var(--sans); padding: 11px 20px; background: var(--panel); color: var(--amber); outline: 1px solid var(--amber); border-radius: 3px; }
 .aim-chip small { font: 400 11px var(--mono); color: var(--dim); margin-left: 8px; }
 .aim-chip::after { content: ' ›'; color: var(--amber); }
 .calib { position: fixed; left: 14px; right: 14px; top: calc(var(--top) + 76px); z-index: 6; background: var(--panel);
