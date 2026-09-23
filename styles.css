@@ -89,6 +89,33 @@ body.scope .reticle { display: none; }
 .ultra .u-scale.on { opacity: 1; }
 .ultra .u-ctl { position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 18px); display: flex; gap: 10px; align-items: center; }
 .ultra .u-ctl input { flex: 1; accent-color: #e0735f; }
+/* ---------- lab ---------- */
+.lab-bars { display: grid; gap: 7px; margin-top: 10px; }
+.lab-bar { display: grid; grid-template-columns: 22px minmax(0, 1.25fr) 1fr 52px; gap: 8px; align-items: center; font-size: 12.5px; }
+.lab-rank { font: 500 11px var(--mono); color: var(--faint); text-align: right; }
+.lab-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lab-name small { display: block; font: 400 10px var(--mono); color: var(--faint); }
+.lab-track { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.lab-track i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #7a2a2a, #d0503c); }
+.lab-val { font: 500 12px var(--mono); text-align: right; }
+.lab-val small { display: block; font: 400 9.5px var(--mono); color: var(--faint); }
+.lab-bar.hot .lab-name { color: #e8806a; }
+.lab-bar.hot .lab-track i { background: linear-gradient(90deg, #a32e2e, #f2735a); }
+.lab-gap { text-align: center; color: var(--faint); font-size: 12px; line-height: 1; }
+.lab-spec { width: 100%; height: auto; margin: 8px 0 2px; font: 400 9px var(--mono); }
+.lab-spec text { fill: var(--dim); }
+.lab-spec .ax { stroke: var(--faint); stroke-width: 1; }
+.lab-spec .grid { stroke: var(--line); stroke-width: 1; }
+.lab-spec .bandl { stroke: rgba(242,180,90,0.28); stroke-width: 1; stroke-dasharray: 2 3; }
+.lab-spec .bandt { fill: rgba(242,180,90,0.85); font-size: 8px; }
+.lab-spec .spec { fill: none; stroke: #e0735f; stroke-width: 1.6; stroke-linejoin: round; }
+.lab-spec .err { fill: rgba(224,115,95,0.18); stroke: none; }
+.lab-spec .arch { fill: none; stroke: var(--faint); stroke-width: 1; stroke-dasharray: 3 3; }
+.lab-spec .unit { fill: var(--faint); }
+.lab-eq { display: grid; gap: 3px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.lab-eq b { font-weight: 500; }
+.lab-eq code { font: 400 13px var(--mono); color: var(--amber); }
+.lab-eq span { color: var(--dim); }
 .aim-chip small { font: 400 11px var(--mono); color: var(--dim); margin-left: 8px; }
 .aim-chip::after { content: ' ›'; color: var(--amber); }
 .calib { position: fixed; left: 14px; right: 14px; top: calc(var(--top) + 76px); z-index: 6; background: var(--panel);

@@ -10,6 +10,7 @@ import { getLocation, loadSavedLocation, saveLocation, PRESETS } from './sensors
 import { renderDetail, registerConstellations } from './ui/detail.js';
 import { renderTonight } from './ui/tonight.js';
 import { openUltramag, ultramagOpen } from './ui/ultramag.js';
+import { renderLab } from './ui/lab.js';
 import { searchIndex, renderFind, renderFindList } from './ui/find.js';
 import * as F from './ui/format.js';
 
@@ -59,7 +60,7 @@ async function boot() {
   if (S.telemetry) startTelemetry().then(updateMarkBtn);
 }
 boot();
-export const APP_VERSION = '2.9.0';
+export const APP_VERSION = '3.0.0';
 window.sf = { st, S }; // handy from the console
 
 function currentDate() { return st.live ? new Date() : st.fixed; }
@@ -365,6 +366,10 @@ function openTab(tab) {
     });
   }
   if (tab === 'setup') openSheet(renderSetup(), wireSetup);
+  if (tab === 'lab') {
+    openSheet('<p class="kicker">Lab</p><h2 class="title">Loading</h2>');
+    renderLab().then((h) => { if (st.tab === 'lab') openSheet(h); }).catch((err) => openSheet(`<p class="note">Couldn't load the lab data: ${F.esc(err.message || err)}</p>`));
+  }
 }
 $('tabs').addEventListener('click', (e) => { const t = e.target.closest('button'); if (t) openTab(t.dataset.tab === st.tab ? 'sky' : t.dataset.tab); });
 
