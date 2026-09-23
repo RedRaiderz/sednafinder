@@ -54,7 +54,7 @@ export function drawSky(R, model, view, opts, hits) {
   }
   // Star visibility: daylight washes out faint stars; the chart keeps a hint of them.
   const skyLimit = opts.magLimit - Math.max(0, (sunAlt + 12) / 3);
-  const magLimit = Math.max(ar ? 1.5 : -1, Math.min(opts.magLimit, skyLimit)) + zoomBonus(view.fov);
+  const magLimit = opts.telescope ? 9 : Math.max(ar ? 1.5 : -1, Math.min(opts.magLimit, skyLimit)) + zoomBonus(view.fov);
 
   if (opts.grid) drawGrid(ctx, view, W, H, s);
   if (opts.ecliptic) drawEcliptic(ctx, model, view, W, H, s);
@@ -96,6 +96,18 @@ export function drawSky(R, model, view, opts, hits) {
     }
     ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${alpha})`;
     ctx.beginPath(); ctx.arc(P.x, P.y, r, 0, 7); ctx.fill();
+  }
+  // Telescope: the faint catalogue, only when zoomed in (sorted bright-first).
+  if (opts.telescope && model.deep && model.deepOn) {
+    const D = model.deep;
+    for (let i = 0; i < D.n; i++) {
+      const m = D.mag[i]; if (m > magLimit) break;
+      if (!projectArr(view, D.enu, i * 3, W, H, s, P) || offscreen(P, W, H, 4)) continue;
+      const r = Math.max(0.6, 2.9 - 0.42 * m + (60 - Math.min(view.fov, 60)) * 0.012);
+      const c0 = starColor(D.ci[i]);
+      ctx.fillStyle = `rgba(${c0[0]},${c0[1]},${c0[2]},${Math.min(1, 0.4 + (magLimit - m) * 0.3)})`;
+      ctx.beginPath(); ctx.arc(P.x, P.y, r, 0, 7); ctx.fill();
+    }
   }
   // Named stars are hit targets + get labels when bright enough for the zoom.
   const labels = [];
@@ -337,11 +349,12 @@ function drawLabels(ctx, labels, W, H) {
     if (box.x1 < 0 || box.x0 > W || box.y1 < 0 || box.y0 > H) continue;
     if (placed.some((p) => !(box.x1 < p.x0 || box.x0 > p.x1 || box.y1 < p.y0 || box.y0 > p.y1))) continue;
     placed.push(box);
-    ctx.fillStyle = l.kind === 'con' ? (l.ar ? 'rgba(210,222,255,0.75)' : 'rgba(170,188,224,0.55)') : l.kind === 'tno' || l.kind === 'polaris' ? '#f2b45a' : l.kind === 'sat' ? 'rgba(160,230,220,0.95)'
+    ctx.fillStyle = l.kind === 'con' ? (l.ar ? 'rgba(210,222,255,0.75)' : 'rgba(170,188,224,0.72)') : l.kind === 'tno' || l.kind === 'polaris' ? '#f2b45a' : l.kind === 'sat' ? 'rgba(160,230,220,0.95)'
       : l.kind === 'dso' ? 'rgba(200,185,240,0.75)' : big ? 'rgba(248,242,228,0.95)' : 'rgba(225,230,240,0.7)';
-    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 3;
+    // Dark halo so lines and stars never run through the letters (star-atlas style).
+    ctx.lineJoin = 'round'; ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(6,8,15,0.92)';
+    ctx.strokeText(l.text, l.x, l.y);
     ctx.fillText(l.text, l.x, l.y);
-    ctx.shadowBlur = 0;
   }
   ctx.globalAlpha = 1;
 }

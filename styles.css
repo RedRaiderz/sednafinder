@@ -26,9 +26,10 @@ body.camera #cam { opacity: 1; }
 
 /* ---------- top HUD ---------- */
 .hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start;
-  padding: calc(var(--top) + 10px) 14px 0; pointer-events: none; z-index: 5; }
+  padding: calc(var(--top) + 10px) 14px 22px; pointer-events: none; z-index: 5;
+  background: linear-gradient(to bottom, rgba(6,8,15,0.9), rgba(6,8,15,0.55) 65%, rgba(6,8,15,0)); }
 .hud > * { pointer-events: auto; }
-.when { display: grid; text-align: left; gap: 1px; padding: 4px 2px; }
+.when { display: grid; text-align: left; gap: 1px; padding: 4px 2px; text-shadow: 0 0 3px #06080f, 0 0 8px #06080f, 0 0 12px #06080f; }
 .when-date { font: 500 10.5px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
 .when-time { display: flex; align-items: baseline; gap: 8px; }
 .when-time b { font: 400 26px/1.05 var(--mono); letter-spacing: -.02em; font-weight: 400; }
@@ -55,6 +56,20 @@ body.camera #cam { opacity: 1; }
   border-radius: 3px; white-space: nowrap; }
 .mark-btn { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 76px); transform: translateX(-50%); z-index: 5;
   font: 500 14px var(--sans); padding: 11px 20px; background: var(--panel); color: var(--amber); outline: 1px solid var(--amber); border-radius: 3px; }
+/* ---------- telescope eyepiece ---------- */
+.eyepiece { display: none; position: fixed; inset: 0; z-index: 3; pointer-events: none;
+  --d: min(90vw, 90vh);
+  background: radial-gradient(circle at 50% 50%, transparent calc(var(--d) / 2 - 1px), rgba(3,4,8,0.94) calc(var(--d) / 2)); }
+.eyepiece i { position: absolute; left: 50%; top: 50%; width: var(--d); height: var(--d); transform: translate(-50%, -50%);
+  border-radius: 50%; box-shadow: 0 0 0 1px rgba(242,180,90,0.55), inset 0 0 40px rgba(0,0,0,0.6); }
+.eyepiece i::before, .eyepiece i::after { content: ''; position: absolute; background: rgba(242,180,90,0.25); }
+.eyepiece i::before { left: 50%; top: 42%; width: 1px; height: 16%; }
+.eyepiece i::after { top: 50%; left: 42%; height: 1px; width: 16%; }
+.eyepiece p { position: absolute; left: 0; right: 0; top: calc(50% + var(--d) / 2 + 10px); margin: 0; text-align: center;
+  font: 400 11px var(--mono); letter-spacing: .08em; color: var(--dim); }
+body.scope .eyepiece { display: block; }
+body.scope #cam { visibility: hidden; }
+body.scope .reticle { display: none; }
 .find-sedna { position: fixed; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 70px); z-index: 5; display: flex; align-items: center; gap: 8px;
   font: 500 13px var(--sans); padding: 9px 14px; background: rgba(6, 8, 15, 0.7); color: var(--amber); outline: 1px solid rgba(242,180,90,0.6); border-radius: 3px; }
 .find-sedna i { width: 12px; height: 12px; border-radius: 50%; border: 1.3px dashed var(--amber); }

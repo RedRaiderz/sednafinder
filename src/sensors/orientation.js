@@ -55,7 +55,7 @@ export function compassOffset(alphaDeg, betaDeg, gammaDeg, headingDeg, declinati
 const state = {
   basis: null, northOffset: null, rejects: 0, trim: 0, compass: false, events: 0, absolute: false, declination: 0,
 };
-const SMOOTH = 0.22;        // basis low-pass per event
+let SMOOTH = 0.22;          // basis low-pass per event (lower = steadier, used when zoomed in)
 const OFFSET_SMOOTH = 0.04; // compass offset is noisy; follow it slowly
 const GAP_MS = 800;         // iOS re-zeroes alpha when the sensor stream pauses (measured: 30-70° jumps)
 const STEADY_DEG_S = 25;    // iOS heading lags the gyro; only learn from it while the phone is steady
@@ -135,6 +135,7 @@ export function setDeclination(d) { state.declination = d; }
 export function getBasis() { return state.basis; }
 export function hasCompass() { return state.compass; }
 export function setTrim(deg) { state.trim = deg; }
+export function setSmoothing(k) { SMOOTH = k; }
 export function getTrim() { return state.trim; }
 // Snapshot for telemetry: last raw event + the fused state it produced.
 export function sensorDebug() {

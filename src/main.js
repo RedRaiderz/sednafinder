@@ -1,8 +1,8 @@
-import { createModel, updateModel, enuFromAltAz, altAzFromEnu } from './sky/model.js';
+import { createModel, updateModel, enuFromAltAz, altAzFromEnu, attachDeepStars } from './sky/model.js';
 import { basisFromAltAz, projScale, dot } from './sky/view.js';
 import { createRenderer, drawSky } from './sky/render.js';
 import { loadSatellites, satState, isSunlit } from './sky/sats.js';
-import { startOrientation, getBasis, hasCompass, setTrim, getTrim, setDeclination, sensorDebug } from './sensors/orientation.js';
+import { startOrientation, getBasis, hasCompass, setTrim, getTrim, setDeclination, sensorDebug, setSmoothing } from './sensors/orientation.js';
 import { startTelemetry, stopTelemetry, telemetryOn, telemetryStatus, sample, mark } from './sensors/telemetry.js';
 import magvar from '../vendor/magvar.js';
 import { startCamera, stopCamera } from './sensors/camera.js';
@@ -31,6 +31,7 @@ const st = {
   loc: loadSavedLocation() || { lat: 40.4237, lon: -86.9212, label: 'no GPS yet — tap to set', approx: true },
   target: null, selected: null, tab: 'sky',
   findQuery: '', findGroup: 'all', calibrating: false, tween: null,
+  scope: false, scopeFov: 5,            // telescope: eyepiece field across the circle, degrees
 };
 let model = null, index = null, lastSatUpdate = 0;
 const hits = [];
@@ -57,7 +58,7 @@ async function boot() {
   if (S.telemetry) startTelemetry().then(updateMarkBtn);
 }
 boot();
-export const APP_VERSION = '2.6.0';
+export const APP_VERSION = '2.7.0';
 window.sf = { st, S }; // handy from the console
 
 function currentDate() { return st.live ? new Date() : st.fixed; }
@@ -135,13 +136,36 @@ function cameraVFov() {
 }
 
 // ---------- view ----------
+function scopeDiameter() { return Math.min(R.W, R.H) * 0.9; }
 function currentView() {
+  // Telescope: the eyepiece circle spans scopeFov; the canvas's vertical FOV follows from that.
+  const scopeV = st.scope ? 2 * Math.atan(Math.tan(st.scopeFov / 2 * D2R) * R.H / scopeDiameter()) / D2R : 0;
   if (st.mode === 'ar') {
     const b = getBasis();
-    if (b) return { ...b, fov: st.camera ? cameraVFov() : st.arFov, proj: 'gnomonic' };
+    if (b) return { ...b, fov: st.scope ? scopeV : st.camera ? cameraVFov() : st.arFov, proj: 'gnomonic' };
   }
-  return { ...basisFromAltAz(st.chart.alt, st.chart.az), fov: st.chart.fov, proj: 'stereo' };
+  return { ...basisFromAltAz(st.chart.alt, st.chart.az), fov: st.scope ? scopeV : st.chart.fov, proj: st.scope ? 'gnomonic' : 'stereo' };
 }
+
+// ---------- telescope ----------
+let deepLoading = null;
+async function setScope(on) {
+  st.scope = on; model.deepOn = on;
+  document.body.classList.toggle('scope', on); $('btnScope').classList.toggle('on', on);
+  setSmoothing(on ? 0.07 : 0.22);
+  if (on && !model.deep) {
+    deepLoading = deepLoading || fetch('data/stars_deep.bin').then((r) => r.arrayBuffer()).then((b) => attachDeepStars(model, b)).catch(() => toast('Couldn’t load the faint stars — showing the main catalogue.'));
+    await deepLoading;
+  }
+  updateScopeInfo();
+}
+function updateScopeInfo() {
+  if (!st.scope) return;
+  const f = st.scopeFov;
+  const like = f > 10 ? 'wide binoculars' : f > 5 ? 'binoculars' : f > 1.5 ? 'finder scope' : 'telescope';
+  $('scopeInfo').textContent = `${f < 2 ? f.toFixed(1) : f.toFixed(0)}° field · ${like} · stars to mag 9`;
+}
+$('btnScope').addEventListener('click', () => { if (model) setScope(!st.scope); });
 
 // ---------- frame ----------
 let lastClock = 0, lastT = 0;
@@ -156,7 +180,7 @@ function frame(t) {
   updateSats(date, t);
   if (st.tween) stepTween(t);
   const view = currentView();
-  drawSky(R, model, view, { ...S, camera: st.camera, target: st.target }, hits);
+  drawSky(R, model, view, { ...S, camera: st.camera && !st.scope, telescope: st.scope, target: st.target }, hits);
   if (st.mode === 'ar') { updateAim(view); sample(t, () => telemetryFrame(view)); }
   if (t - lastClock > 500) { lastClock = t; updateClock(date); }
 }
@@ -236,14 +260,16 @@ sky.addEventListener('pointerdown', (e) => {
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   st.tween = null;
   if (ptrs.size === 1) gesture = { type: 'pan', x0: e.clientX, y0: e.clientY, t0: performance.now(), moved: 0, last: { x: e.clientX, y: e.clientY } };
-  else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; gesture = { type: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), fov0: st.mode === 'ar' ? st.arFov : st.chart.fov, moved: 99 }; }
+  else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; gesture = { type: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), fov0: st.scope ? st.scopeFov : st.mode === 'ar' ? st.arFov : st.chart.fov, moved: 99 }; }
 });
 sky.addEventListener('pointermove', (e) => {
   if (!ptrs.has(e.pointerId) || !gesture) return;
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (gesture.type === 'pinch' && ptrs.size >= 2) {
     const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
-    const fov = Math.max(8, Math.min(st.mode === 'ar' ? 90 : 150, gesture.fov0 * gesture.d0 / Math.max(d, 1)));
+    const k = gesture.d0 / Math.max(d, 1);
+    if (st.scope) { st.scopeFov = Math.max(0.5, Math.min(20, gesture.fov0 * k)); updateScopeInfo(); return; }
+    const fov = Math.max(8, Math.min(st.mode === 'ar' ? 90 : 150, gesture.fov0 * k));
     if (st.mode === 'ar') { if (!st.camera) st.arFov = fov; } else st.chart.fov = fov;
   } else if (gesture.type === 'pan') {
     const dx = e.clientX - gesture.last.x, dy = e.clientY - gesture.last.y;
@@ -265,7 +291,11 @@ const endPtr = (e) => {
   else if (ptrs.size === 1) { const [p] = [...ptrs.values()]; gesture = { type: 'pan', x0: p.x, y0: p.y, t0: 0, moved: 99, last: { ...p } }; } // pinch -> keep panning with the remaining finger
 };
 sky.addEventListener('pointerup', endPtr); sky.addEventListener('pointercancel', endPtr);
-sky.addEventListener('wheel', (e) => { e.preventDefault(); st.chart.fov = Math.max(8, Math.min(150, st.chart.fov * Math.exp(e.deltaY * 0.001))); }, { passive: false });
+sky.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  if (st.scope) { st.scopeFov = Math.max(0.5, Math.min(20, st.scopeFov * Math.exp(e.deltaY * 0.001))); updateScopeInfo(); }
+  else st.chart.fov = Math.max(8, Math.min(150, st.chart.fov * Math.exp(e.deltaY * 0.001)));
+}, { passive: false });
 
 function tapAt(x, y) {
   if ($('sheet').classList.contains('open')) { closeSheet(); return; }

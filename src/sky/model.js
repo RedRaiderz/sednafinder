@@ -96,6 +96,18 @@ export function createModel({ stars, constellations, dso }) {
     sats: [], lastSolarMs: NaN, lastObsKey: '' };
 }
 
+// Faint stars for telescope mode, from data/stars_deep.bin (see tools/build-data.mjs).
+export function attachDeepStars(m, buffer) {
+  const dv = new DataView(buffer), n = Math.floor(buffer.byteLength / 6);
+  const eqj = new Float32Array(n * 3), enu = new Float32Array(n * 3), mag = new Float32Array(n), ci = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const o = i * 6;
+    eqj.set(eqjVector(dv.getUint16(o, true) / 65535 * 360, dv.getInt16(o + 2, true) / 32767 * 90), i * 3);
+    mag[i] = dv.getUint8(o + 4) / 20; ci[i] = dv.getInt8(o + 5) / 50;
+  }
+  m.deep = { n, eqj, enu, mag, ci };
+}
+
 export function makeObserver(loc) { return new A.Observer(loc.lat, loc.lon, loc.elev || 0); }
 
 // Recompute every position for `date` at location `loc`. Cheap enough to run each frame;
@@ -110,6 +122,10 @@ export function updateModel(m, date, loc) {
   for (let i = 0, o = 0; i < m.starCount; i++, o += 3) {
     rotToEnu(rot, E[o], E[o + 1], E[o + 2], O, o);
     refractInPlace(O, o);
+  }
+  if (m.deep && m.deepOn) {
+    const D = m.deep;
+    for (let i = 0, o = 0; i < D.n; i++, o += 3) { rotToEnu(rot, D.eqj[o], D.eqj[o + 1], D.eqj[o + 2], D.enu, o); refractInPlace(D.enu, o); }
   }
   for (const c of m.cons) { rotToEnu(rot, c.eqj[0], c.eqj[1], c.eqj[2], c.enu, 0); }
   for (const d of m.dsos) { rotToEnu(rot, d.eqj[0], d.eqj[1], d.eqj[2], d.enu, 0); refractInPlace(d.enu, 0); }

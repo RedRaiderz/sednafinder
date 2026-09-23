@@ -128,6 +128,29 @@ for (const d of dso.sort((a, b) => (parseInt(a.id.slice(1)) || 999) - (parseInt(
 }
 
 writeFileSync(new URL('stars.json', OUT), JSON.stringify(sorted));
+
+// ---------- deep stars for telescope mode (packed binary, fainter than the main set) ----------
+// 6 bytes/star, little-endian: u16 RA (0..360), i16 Dec (-90..90), u8 mag*20, i8 B-V*50. Bright-first.
+const DEEP_LIMIT = 9.0;
+const deep = [];
+for (let i = 2; i < hygLines.length; i++) {
+  if (!hygLines[i]) continue;
+  const r = parseCSVLine(hygLines[i]);
+  const mag = parseFloat(r[I.mag]); const hip = parseInt(r[I.hip], 10) || 0;
+  if (!(mag > MAG_LIMIT && mag <= DEEP_LIMIT) || (hip && hipIndex[hip] !== undefined)) continue;
+  deep.push([parseFloat(r[I.ra]) * 15, parseFloat(r[I.dec]), mag, parseFloat(r[I.ci])]);
+}
+deep.sort((a, b) => a[2] - b[2]);
+const buf = Buffer.alloc(deep.length * 6);
+deep.forEach(([ra, dec, mag, ci], k) => {
+  const o = k * 6;
+  buf.writeUInt16LE(Math.round(((ra % 360) + 360) % 360 / 360 * 65535), o);
+  buf.writeInt16LE(Math.round(dec / 90 * 32767), o + 2);
+  buf.writeUInt8(Math.min(255, Math.round(mag * 20)), o + 4);
+  buf.writeInt8(Math.max(-127, Math.min(127, Math.round((Number.isFinite(ci) ? ci : 0.6) * 50))), o + 5);
+});
+writeFileSync(new URL('stars_deep.bin', OUT), buf);
+console.log('deep stars', deep.length, 'bytes', buf.length);
 writeFileSync(new URL('constellations.json', OUT), JSON.stringify(cons));
 writeFileSync(new URL('dso.json', OUT), JSON.stringify(dsoOut));
 console.log(`stars ${sorted.length}, constellations ${cons.length}, dso ${dsoOut.length} (messier ${dsoOut.filter((d) => /^M\d/.test(d.id)).length})`);
