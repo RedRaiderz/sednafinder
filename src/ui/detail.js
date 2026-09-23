@@ -23,8 +23,8 @@ export { moonPhaseName };
 
 function spectralNote(sp) {
   const c = (sp || '')[0];
-  return { O: 'Blue, >30,000 K', B: 'Blue-white, 10–30,000 K', A: 'White, 7,500–10,000 K', F: 'Yellow-white, 6–7,500 K',
-    G: 'Yellow, 5–6,000 K (like the Sun)', K: 'Orange, 3,900–5,200 K', M: 'Red, <3,900 K' }[c] || '';
+  return { O: 'Blue, >30,000 K', B: 'Blue-white, 10,000–30,000 K', A: 'White, 7,500–10,000 K', F: 'Yellow-white, 6,000–7,500 K',
+    G: 'Yellow, 5,200–6,000 K (like the Sun)', K: 'Orange, 3,700–5,200 K', M: 'Red, <3,700 K' }[c] || '';
 }
 
 function visLine(alt, riseSet, now) {
@@ -112,19 +112,25 @@ function solarDetail(b, model, loc, now) {
 function tnoDetail(t, loc, now) {
   const f = t.el.facts; const rs = fixedRiseSet(t.ra, t.dec, now, loc);
   const con = constellationOf(t.ra, t.dec).name;
-  let html = header(`Far frontier · in ${con}`, t.name, t.el.designation);
+  let html = header(`${t.el.status} · in ${con}`, t.name, t.el.designation);
   html += stats([[t.mag.toFixed(1), 'Magnitude'], [F.deg(t.alt), 'Altitude'], [t.distAU.toFixed(1), 'AU away']]);
   html += visLine(t.alt, rs, now) + actions;
   html += `<p class="blurb">${F.esc(f.blurb)}</p>`;
-  html += `<p class="note">Magnitude ${t.mag.toFixed(1)} — ${F.visibilityClass(t.mag).toLowerCase()}. The marker is where it is; the light that reaches you left ${F.lightTime(t.distAU).replace('light-', '')} ago.</p>`;
+  html += `<p class="note">Magnitude ${t.mag.toFixed(1)}: ${F.visibilityClass(t.mag).toLowerCase()}. The marker shows where it actually is. The sunlight it reflects takes ${F.lightTime(t.distAU).replace('light-', '')} to reach you.</p>`;
   html += `<p class="section">Tonight</p>` + riseSetRows(rs, now);
   html += `<p class="section">Now</p>` + F.row('From Earth', `${t.distAU.toFixed(2)} AU`) + F.row('In km', `${(t.distAU * 149597870.7).toExponential(2).replace('e+', ' × 10^')}`) +
     F.row('From the Sun', `${t.helioAU.toFixed(2)} AU`) + F.row('Light-time', F.lightTime(t.distAU));
   html += `<p class="section">Position</p>` + positionRows(t.ra, t.dec, t.alt, t.az);
   html += `<p class="section">Orbit & body</p>` + F.row('Diameter', `~${F.num(f.diameterKm)} km`) + F.row('Orbital period', `${F.num(f.periodYears)} years`) +
-    F.row('Perihelion / aphelion', `${f.perihelionAU} / ${f.aphelionAU} AU`) + F.row('Next perihelion', f.nextPerihelion) +
+    F.row('Perihelion / aphelion', `${f.perihelionAU} / ${f.aphelionAU} AU`) + F.row('Next perihelion', `~${nextPerihelion(t.el)}`) +
     F.row('Surface', `~${f.surfaceTempK} K (${Math.round(f.surfaceTempK - 273.15)} °C)`) + F.row('Discovered', F.esc(f.discovery));
   return html;
+}
+
+// Year of the next closest approach to the Sun, from the orbital elements.
+function nextPerihelion(el) {
+  const periodYr = Math.pow(el.a, 1.5), epochYr = 2000 + (el.epoch - 2451545.0) / 365.25;
+  return Math.round(epochYr + ((360 - el.M0) % 360) / 360 * periodYr);
 }
 
 function starDetail(s, model, loc, now) {
@@ -134,8 +140,11 @@ function starDetail(s, model, loc, now) {
   html += stats([[s.mag.toFixed(2), 'Magnitude'], [F.deg(alt), 'Altitude'], [s.distLy ? (s.distLy < 1000 ? s.distLy.toFixed(s.distLy < 100 ? 1 : 0) : F.num(s.distLy)) : '—', 'Light-years']]);
   html += visLine(alt, rs, now) + actions;
   if (s.distLy) {
-    const year = now.getFullYear() - Math.round(s.distLy);
-    html += `<p class="blurb">The light you'd see tonight left it ${s.distLy < 2 ? 'a little over a year' : `around ${year > 0 ? year : `${-year} BCE`}`} ago.</p>`;
+    // Distances beyond ~100 ly carry real uncertainty, so round the story to match.
+    const ly = s.distLy, step = ly < 100 ? 1 : ly < 1000 ? 10 : 100;
+    const yrs = Math.round(ly / step) * step, year = Math.round((now.getFullYear() - ly) / step) * step;
+    const when = year > 0 ? `around ${year}` : `around ${F.num(1 - year)} BCE`;
+    html += `<p class="blurb">The light you'd see tonight left it about ${F.num(yrs)} years ago, ${when}.</p>`;
   }
   html += `<p class="section">Tonight</p>` + riseSetRows(rs, now);
   html += `<p class="section">Star</p>` + F.row('Spectral type', F.esc(s.spect || '—')) + F.row('Colour', spectralNote(s.spect) || '—') +

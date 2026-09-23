@@ -57,7 +57,7 @@ async function boot() {
   if (S.telemetry) startTelemetry().then(updateMarkBtn);
 }
 boot();
-export const APP_VERSION = '2.5.0';
+export const APP_VERSION = '2.6.0';
 window.sf = { st, S }; // handy from the console
 
 function currentDate() { return st.live ? new Date() : st.fixed; }
@@ -382,7 +382,7 @@ function renderSetup() {
     <div class="btnrow"><button class="ghost" id="calib">Calibrate compass</button><button class="ghost" id="calibClear">Reset (${S.trim.toFixed(1)}°)</button></div>
     <p class="section">Camera field of view · <span id="fovV">${S.camFov}</span>°</p>
     <input class="range" id="fovIn" type="range" min="45" max="90" step="1" value="${S.camFov}">
-    <p class="note">If markers drift outward from what you see, lower this; if they bunch toward the centre, raise it. iPhone main camera ≈ 67.</p>
+    <p class="note">If markers sit farther from the centre than the real objects, raise this; if they sit closer to the centre, lower it. iPhone main camera ≈ 67.</p>
     <p class="section">Field telemetry</p>
     ${toggle('telemetry', 'Send sensor data to Solace')}
     <p class="note" id="telemV">${S.telemetry ? 'Status: ' + F.esc(telemetryStatus().status) + ' · ' + telemetryStatus().sent + ' samples sent' : 'Off. Needs Tailscale on. Streams compass/tilt/view data while pointing so the aiming can be tuned; in pointing mode, put the real Moon or a planet in the reticle and tap “I’m on it”.'}</p>
