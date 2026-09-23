@@ -24,7 +24,8 @@ export { moonPhaseName };
 function spectralNote(sp) {
   const c = (sp || '')[0];
   return { O: 'Blue, >30,000 K', B: 'Blue-white, 10,000–30,000 K', A: 'White, 7,500–10,000 K', F: 'Yellow-white, 6,000–7,500 K',
-    G: 'Yellow, 5,200–6,000 K (like the Sun)', K: 'Orange, 3,700–5,200 K', M: 'Red, <3,700 K' }[c] || '';
+    G: 'Yellow, 5,200–6,000 K (like the Sun)', K: 'Orange, 3,700–5,200 K', M: 'Red, <3,700 K',
+    C: 'Deep red carbon star, ~2,500–3,000 K', N: 'Deep red carbon star, ~2,500–3,000 K', S: 'Red, <3,700 K' }[c] || '';
 }
 
 function visLine(alt, riseSet, now) {
@@ -134,6 +135,10 @@ function nextPerihelion(el) {
   return Math.round(epochYr + ((360 - el.M0) % 360) / 360 * periodYr);
 }
 
+const STAR_NOTES = {
+  23203: 'One of the reddest stars you can see. Carbon in its atmosphere acts like soot and filters out the blue, so through a small telescope it looks blood red. It is a variable star: over about 14 months it swings between roughly magnitude 5.5 (just visible to the eye in a dark sky) and 11.7 (telescope only).',
+};
+
 function starDetail(s, model, loc, now) {
   const { alt, az } = altAzFromEnu(s.enu);
   const rs = fixedRiseSet(s.ra, s.dec, now, loc);
@@ -147,6 +152,7 @@ function starDetail(s, model, loc, now) {
     const when = year > 0 ? `around ${year}` : `around ${F.num(1 - year)} BCE`;
     html += `<p class="blurb">The light you'd see tonight left it about ${F.num(yrs)} years ago, ${when}.</p>`;
   }
+  if (STAR_NOTES[s.hip]) html += `<p class="blurb">${STAR_NOTES[s.hip]}</p>`;
   html += `<p class="section">Tonight</p>` + riseSetRows(rs, now);
   html += `<p class="section">Star</p>` + F.row('Spectral type', F.esc(s.spect || '—')) + F.row('Colour', spectralNote(s.spect) || '—') +
     F.row('Distance', F.ly(s.distLy)) + (s.hip ? F.row('Catalogue', `HIP ${s.hip}`) : '');

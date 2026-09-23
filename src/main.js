@@ -59,7 +59,7 @@ async function boot() {
   if (S.telemetry) startTelemetry().then(updateMarkBtn);
 }
 boot();
-export const APP_VERSION = '2.8.0';
+export const APP_VERSION = '2.9.0';
 window.sf = { st, S }; // handy from the console
 
 function currentDate() { return st.live ? new Date() : st.fixed; }

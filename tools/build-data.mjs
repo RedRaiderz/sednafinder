@@ -8,6 +8,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const RAW = new URL('./raw/', import.meta.url);
 const OUT = new URL('../data/', import.meta.url);
 const MAG_LIMIT = 6.0;
+// Famous stars fainter than the main cut that should still be named and searchable.
+const EXTRA_NAMED = { 23203: "Hind's Crimson Star" }; // R Leporis, carbon star, varies ~5.5–11.7
+const EXTRA_DES = { 23203: 'R Leporis' };
 
 // ---------- CSV helper (HYG uses quotes; OpenNGC uses ';' with no quotes) ----------
 function parseCSVLine(line) {
@@ -52,15 +55,15 @@ for (let i = 2; i < hygLines.length; i++) { // row 1 is the Sun
   if (!hygLines[i]) continue;
   const r = parseCSVLine(hygLines[i]);
   const mag = parseFloat(r[I.mag]); const hip = parseInt(r[I.hip], 10) || 0;
-  if (!(mag <= MAG_LIMIT) && !lineHips.has(hip)) continue;
+  if (!(mag <= MAG_LIMIT) && !lineHips.has(hip) && !EXTRA_NAMED[hip]) continue;
   if (hip && hipIndex[hip] !== undefined) continue;
   const raDeg = parseFloat(r[I.ra]) * 15, dec = parseFloat(r[I.dec]);
   const ci = parseFloat(r[I.ci]); const dist = parseFloat(r[I.dist]);
   const s = [
     +raDeg.toFixed(4), +dec.toFixed(4), +mag.toFixed(2), Number.isFinite(ci) ? +ci.toFixed(2) : 0.6,
   ];
-  const name = r[I.proper] || '';
-  const des = bayerLabel(r[I.bayer], r[I.con]) || (r[I.flam] ? `${r[I.flam]} ${r[I.con]}` : '');
+  const name = r[I.proper] || EXTRA_NAMED[hip] || '';
+  const des = EXTRA_DES[hip] || bayerLabel(r[I.bayer], r[I.con]) || (r[I.flam] ? `${r[I.flam]} ${r[I.con]}` : '');
   // Extra detail only for stars worth a detail sheet (named or bright).
   if (name || mag < 4.5) {
     s.push(name, des, r[I.con], dist > 0 && dist < 100000 ? +(dist * 3.26156).toFixed(1) : 0,
