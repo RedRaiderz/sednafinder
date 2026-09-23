@@ -57,6 +57,7 @@ async function boot() {
   if (S.telemetry) startTelemetry().then(updateMarkBtn);
 }
 boot();
+export const APP_VERSION = '2.4.0';
 window.sf = { st, S }; // handy from the console
 
 function currentDate() { return st.live ? new Date() : st.fixed; }
@@ -190,7 +191,7 @@ function bodiesUp() {
 }
 function telemetryFrame(view) {
   const v = $('cam');
-  return { t: Date.now(), mode: st.mode, camera: st.camera, cam: camAltAz(view), up: view.u.map(r2), fov: r2(view.fov),
+  return { t: Date.now(), v: APP_VERSION, mode: st.mode, camera: st.camera, cam: camAltAz(view), up: view.u.map(r2), fov: r2(view.fov),
     camFovSetting: S.camFov, screen: [R.W, R.H], video: [v.videoWidth || 0, v.videoHeight || 0],
     sensor: sensorDebug(), loc: { lat: st.loc.lat, lon: st.loc.lon, label: st.loc.label },
     aimed: aimed ? label(aimed) : null, target: st.target ? label(st.target) : null, bodies: bodiesUp() };
@@ -378,7 +379,7 @@ function renderSetup() {
     <p class="section">Field telemetry</p>
     ${toggle('telemetry', 'Send sensor data to Solace')}
     <p class="note" id="telemV">${S.telemetry ? 'Status: ' + F.esc(telemetryStatus().status) + ' · ' + telemetryStatus().sent + ' samples sent' : 'Off. Needs Tailscale on. Streams compass/tilt/view data while pointing so the aiming can be tuned; in pointing mode, put the real Moon or a planet in the reticle and tap “I’m on it”.'}</p>
-    <p class="section">About</p>
+    <p class="section">About · v${APP_VERSION}</p>
     <p class="note">Positions from astronomy-engine (VSOP87 / Meeus lunar theory), stars from the HYG catalogue, deep sky from OpenNGC, satellites from CelesTrak (refreshed daily), far-frontier orbits from JPL small-body elements. Works offline after the first load, except satellite updates.</p>`;
 }
 function wireSetup(root) {

@@ -86,7 +86,12 @@
     <script type="module" src="src/main.js"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+        // A new version takes over as soon as it has downloaded; reload once so it's what you see.
+        let reloaded = false;
+        const hadController = !!navigator.serviceWorker.controller;
+        navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+        window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then((r) => r.update()).catch(() => {}));
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then((r) => r && r.update()); });
       }
     </script>
   </body>
