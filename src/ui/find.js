@@ -9,7 +9,7 @@ export function searchIndex(model) {
   const items = [];
   for (const b of model.solar) items.push({ obj: b, g: 'solar', name: b.name, sub: b.kind === 'planet' ? 'Planet' : b.kind === 'moon' ? 'Moon' : 'Star', keys: b.name });
   for (const t of model.tnos) items.push({ obj: t, g: 'far', name: t.name, sub: `Dwarf planet · ${t.el.designation}`, keys: `${t.name} ${t.el.designation}` });
-  for (const s of model.starInfo) if (s.proper || s.mag < 3.5) items.push({ obj: s, g: 'stars', name: s.proper || s.designation, sub: `${s.proper ? s.designation + ' · ' : ''}mag ${s.mag.toFixed(1)}`, keys: `${s.proper} ${s.designation} ${s.hip ? 'hip ' + s.hip : ''}` });
+  for (const s of model.starInfo) if (s.proper || s.mag < 3.5) items.push({ obj: s, g: 'stars', name: s.proper || s.designation, sub: `${s.proper ? s.designation + ' · ' : ''}mag ${s.mag.toFixed(1)}`, keys: `${s.proper} ${s.proper === 'Polaris' ? 'north star pole star' : ''} ${s.designation} ${s.hip ? 'hip ' + s.hip : ''}` });
   for (const d of model.dsos) items.push({ obj: d, g: 'dso', name: d.name ? `${d.code} · ${d.name}` : d.code, sub: `${d.type}${d.ngc ? ' · ' + d.ngc : ''}`, keys: `${d.code} ${d.name} ${d.ngc} ${d.type}` });
   for (const c of model.cons) items.push({ obj: c, g: 'con', name: c.name, sub: c.meaning, keys: `${c.name} ${c.meaning} ${c.abbr}` });
   for (const s of model.sats) items.push({ obj: s, g: 'sat', name: s.name, sub: `Satellite · NORAD ${s.norad}`, keys: `${s.name} ${s.fullName} ${s.norad}` });

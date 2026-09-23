@@ -57,7 +57,7 @@ async function boot() {
   if (S.telemetry) startTelemetry().then(updateMarkBtn);
 }
 boot();
-export const APP_VERSION = '2.4.0';
+export const APP_VERSION = '2.5.0';
 window.sf = { st, S }; // handy from the console
 
 function currentDate() { return st.live ? new Date() : st.fixed; }
@@ -275,10 +275,17 @@ function tapAt(x, y) {
 }
 
 // ---------- navigation to a target ----------
+$('findSedna').addEventListener('click', () => {
+  const sedna = model && model.tnos.find((t) => t.name === 'Sedna'); if (!sedna) return;
+  st.tab = 'sky'; closeSheet(); pointAt(sedna);
+  const { alt, az } = altAzFromEnu(sedna.enu);
+  const dir = F.compass(az);
+  toast(`Sedna: ${alt >= 0 ? alt.toFixed(0) + '° up' : Math.abs(alt).toFixed(0) + '° below the horizon'}, toward ${dir}.${st.mode === 'ar' ? ' Follow the arrow.' : ''}`);
+});
 function pointAt(obj) {
   st.target = obj; st.targetHit = false;
   if (st.mode === 'chart') centerOn(obj);
-  else toast(`Follow the arrow to ${label(obj)}.`);
+  else if (obj.name !== 'Sedna') toast(`Follow the arrow to ${label(obj)}.`);
 }
 function centerOn(obj) {
   if (!obj.enu) return;

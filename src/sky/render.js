@@ -102,6 +102,14 @@ export function drawSky(R, model, view, opts, hits) {
   for (const st of model.starInfo) {
     if (st.mag > magLimit) continue;
     if (!projectArr(view, E, st.idx * 3, W, H, s, P) || offscreen(P, W, H)) continue;
+    if (st.proper === 'Polaris') { // the actual North Star: always marked, always labelled
+      ctx.strokeStyle = 'rgba(242,180,90,0.9)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(P.x, P.y, 8, 0, 7);
+      for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; ctx.moveTo(P.x + 10 * Math.cos(a), P.y + 10 * Math.sin(a)); ctx.lineTo(P.x + 14 * Math.cos(a), P.y + 14 * Math.sin(a)); }
+      ctx.stroke();
+      hits.push({ obj: st, x: P.x, y: P.y, r: 18, pri: 4 });
+      if (opts.labels) labels.push({ x: P.x + 16, y: P.y + 4, text: 'Polaris · North Star', kind: 'polaris', u: E[st.idx * 3 + 2] });
+      continue;
+    }
     hits.push({ obj: st, x: P.x, y: P.y, r: 14, pri: 1 });
     if (opts.labels && st.proper && st.mag < labelMag(view.fov)) labels.push({ x: P.x + 7, y: P.y - 6, text: st.proper, kind: 'star', u: E[st.idx * 3 + 2] });
   }
@@ -317,11 +325,11 @@ function drawHorizon(ctx, view, W, H, s, ar, sunAlt) {
 function drawLabels(ctx, labels, W, H) {
   // Greedy de-overlap: first come, first placed; skip labels that collide.
   const placed = [];
-  const order = { sun: 0, moon: 0, planet: 1, tno: 2, sat: 3, star: 4, dso: 5, con: 6 };
+  const order = { sun: 0, moon: 0, planet: 1, polaris: 1, tno: 2, sat: 3, star: 4, dso: 5, con: 6 };
   labels.sort((a, b) => order[a.kind] - order[b.kind]);
   for (const l of labels) {
     ctx.globalAlpha = l.u < -0.005 ? 0.5 : 1; // under the ground: still shown, dimmed
-    const big = l.kind === 'planet' || l.kind === 'moon' || l.kind === 'sun';
+    const big = l.kind === 'planet' || l.kind === 'moon' || l.kind === 'sun' || l.kind === 'polaris';
     ctx.font = l.kind === 'con' ? `italic 400 ${l.fov > 100 ? 12 : 14}px ${FONT_SERIF}` : big ? `500 13px ${FONT_UI}` : l.kind === 'dso' ? `400 10px ${FONT_MONO}` : `400 11.5px ${FONT_UI}`;
     const w = ctx.measureText(l.text).width, h = 13;
     if (l.center) l.x -= w / 2;
@@ -329,7 +337,7 @@ function drawLabels(ctx, labels, W, H) {
     if (box.x1 < 0 || box.x0 > W || box.y1 < 0 || box.y0 > H) continue;
     if (placed.some((p) => !(box.x1 < p.x0 || box.x0 > p.x1 || box.y1 < p.y0 || box.y0 > p.y1))) continue;
     placed.push(box);
-    ctx.fillStyle = l.kind === 'con' ? (l.ar ? 'rgba(210,222,255,0.75)' : 'rgba(170,188,224,0.55)') : l.kind === 'tno' ? '#f2b45a' : l.kind === 'sat' ? 'rgba(160,230,220,0.95)'
+    ctx.fillStyle = l.kind === 'con' ? (l.ar ? 'rgba(210,222,255,0.75)' : 'rgba(170,188,224,0.55)') : l.kind === 'tno' || l.kind === 'polaris' ? '#f2b45a' : l.kind === 'sat' ? 'rgba(160,230,220,0.95)'
       : l.kind === 'dso' ? 'rgba(200,185,240,0.75)' : big ? 'rgba(248,242,228,0.95)' : 'rgba(225,230,240,0.7)';
     ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 3;
     ctx.fillText(l.text, l.x, l.y);
