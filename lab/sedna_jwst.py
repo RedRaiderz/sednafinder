@@ -58,8 +58,8 @@ for k in range(nz):
         continue
     bkg = np.nanmedian(plane[good_an])
     npx = (ap & np.isfinite(plane)).sum()
-    f[k] = (np.nansum(plane[ap]) - bkg * npx) * pix_sr * 1e12          # MJy/sr * sr -> Jy
-    e[k] = np.sqrt(np.nansum(eplane[ap] ** 2)) * pix_sr * 1e12
+    f[k] = (np.nansum(plane[ap]) - bkg * npx) * pix_sr * 1e6           # MJy/sr * sr -> Jy
+    e[k] = np.sqrt(np.nansum(eplane[ap] ** 2)) * pix_sr * 1e6
 ok = np.isfinite(f) & (f > 0) & np.isfinite(e) & (w > 0.65) & (w < 5.2)
 w, f, e = w[ok], f[ok], e[ok]
 print("centroid", round(cx, 2), round(cy, 2), "spaxel", round(spax_arcsec, 3), "arcsec")
