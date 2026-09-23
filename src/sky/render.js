@@ -197,6 +197,7 @@ function offscreen(P, W, H, pad = 0) { return P.x < -pad || P.y < -pad || P.x > 
 function smooth(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 function mix(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
 function rgb(c) { return `rgb(${c.map(Math.round).join(',')})`; }
+function rgba(c, a) { return `rgba(${c.map(Math.round).join(',')},${a})`; }
 function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
 
 function drawGrid(ctx, view, W, H, s) {
@@ -274,7 +275,8 @@ function drawHorizon(ctx, view, W, H, s, ar, sunAlt) {
   const Ux = view.r[2], Uy = view.u[2], Uz = view.f[2]; // zenith in camera coords
   const cx = W / 2, cy = H / 2;
   ctx.save();
-  ctx.fillStyle = ar ? 'rgba(10,12,14,0.35)' : rgb(mix([9, 11, 12], [34, 40, 38], smooth(-12, 6, sunAlt)));
+  // Translucent so everything below the horizon stays visible, just dimmed.
+  ctx.fillStyle = ar ? 'rgba(10,12,14,0.3)' : rgba(mix([9, 11, 12], [34, 40, 38], smooth(-12, 6, sunAlt)), 0.55);
   ctx.strokeStyle = ar ? 'rgba(242,180,90,0.7)' : 'rgba(242,180,90,0.45)'; ctx.lineWidth = 1;
   const stereoCircle = view.proj === 'stereo' && Math.abs(Uz) > 1e-4 && 2 / Math.abs(Uz) * s < 1e5;
   if (stereoCircle) {
@@ -318,7 +320,7 @@ function drawLabels(ctx, labels, W, H) {
   const order = { sun: 0, moon: 0, planet: 1, tno: 2, sat: 3, star: 4, dso: 5, con: 6 };
   labels.sort((a, b) => order[a.kind] - order[b.kind]);
   for (const l of labels) {
-    if (l.u < -0.005) continue; // under the ground: the marker is hidden, so is the label
+    ctx.globalAlpha = l.u < -0.005 ? 0.5 : 1; // under the ground: still shown, dimmed
     const big = l.kind === 'planet' || l.kind === 'moon' || l.kind === 'sun';
     ctx.font = l.kind === 'con' ? `italic 400 ${l.fov > 100 ? 12 : 14}px ${FONT_SERIF}` : big ? `500 13px ${FONT_UI}` : l.kind === 'dso' ? `400 10px ${FONT_MONO}` : `400 11.5px ${FONT_UI}`;
     const w = ctx.measureText(l.text).width, h = 13;
@@ -333,6 +335,7 @@ function drawLabels(ctx, labels, W, H) {
     ctx.fillText(l.text, l.x, l.y);
     ctx.shadowBlur = 0;
   }
+  ctx.globalAlpha = 1;
 }
 
 function drawEdgeArrow(ctx, view, target, W, H) {

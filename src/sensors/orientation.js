@@ -36,19 +36,18 @@ export function yawBasis(b, deg) {
 }
 const yawOf = (v) => (Math.atan2(v[0], v[1]) * R2D + 360) % 360;
 
-// North offset for iOS: webkitCompassHeading is the (magnetic) heading of the device top when
-// the phone is flat and of the rear camera when it is held up. Measure that same axis in the
-// raw, arbitrarily-oriented alpha frame; the offset is the difference. Pure, for tests.
+// North offset for iOS: webkitCompassHeading is the (magnetic) heading of whichever device axis,
+// the rear camera (-Z) or the top edge (+Y), lies closer to horizontal. Measured on Paine's
+// iPhone 15 Pro 2026-09-22: that rule gives one steady offset flat, upright and tilted 55° up,
+// where the old "camera only while nearly upright" rule froze a stale offset whenever the phone
+// pointed more than ~27° up. Measure the same axis in the raw, arbitrarily-oriented alpha frame;
+// the offset is the difference. Pure, for tests.
 export function compassOffset(alphaDeg, betaDeg, gammaDeg, headingDeg, declinationDeg = 0) {
-  // Only trust poses where iOS's reference axis is unambiguous: lying face-up (top edge) or held
-  // roughly upright (camera). Tilted toward the zenith the two conventions differ by 180°, so we
-  // hold the last offset there — the gyro frame it corrects doesn't move.
   const { Y, Z } = deviceAxes(alphaDeg, betaDeg, gammaDeg);
-  let axis;
-  if (Z[2] > 0.9) axis = Y;
-  else if (Math.abs(Z[2]) < 0.45) axis = [-Z[0], -Z[1], -Z[2]];
-  else return null;
-  if (Math.hypot(axis[0], axis[1]) < 0.2) return null;
+  const cam = [-Z[0], -Z[1], -Z[2]];
+  const hc = Math.hypot(cam[0], cam[1]), hy = Math.hypot(Y[0], Y[1]);
+  if (Math.abs(hc - hy) < 0.12) return null; // near 45°: iOS may be using either axis
+  const axis = hc > hy ? cam : Y;
   return wrap(headingDeg + declinationDeg - yawOf(axis));
 }
 
@@ -57,7 +56,9 @@ const state = {
   basis: null, northOffset: null, rejects: 0, trim: 0, compass: false, events: 0, absolute: false, declination: 0,
 };
 const SMOOTH = 0.22;        // basis low-pass per event
-const OFFSET_SMOOTH = 0.05; // compass offset is noisy; follow it slowly
+const OFFSET_SMOOTH = 0.04; // compass offset is noisy; follow it slowly
+const GAP_MS = 800;         // iOS re-zeroes alpha when the sensor stream pauses (measured: 30-70° jumps)
+const STEADY_DEG_S = 25;    // iOS heading lags the gyro; only learn from it while the phone is steady
 
 function screenAngle() {
   if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
@@ -69,20 +70,29 @@ function onEvent(e) {
   if (e.alpha == null && e.beta == null) return;
   state.events++;
   const alpha = e.alpha || 0, beta = e.beta || 0, gamma = e.gamma || 0;
+  const now = performance.now(), prev = state.raw;
   state.raw = { type: e.type, alpha: e.alpha, beta: e.beta, gamma: e.gamma, abs: !!e.absolute,
-    hdg: e.webkitCompassHeading, hdgAcc: e.webkitCompassAccuracy, t: performance.now() };
+    hdg: e.webkitCompassHeading, hdgAcc: e.webkitCompassAccuracy, t: now };
+  // After a pause the alpha frame may have been re-zeroed: forget the old offset and re-acquire.
+  if (prev && now - prev.t > GAP_MS) { state.northOffset = null; state.basis = null; }
   let yaw = 0;
   if (typeof e.webkitCompassHeading === 'number') {
     state.compass = true;
-    if (e.webkitCompassHeading >= 0) {
+    let rate = 0;
+    if (prev && prev.alpha != null && now > prev.t) {
+      const f0 = deviceAxes(prev.alpha, prev.beta, prev.gamma).Z, f1 = deviceAxes(alpha, beta, gamma).Z;
+      rate = Math.acos(Math.max(-1, Math.min(1, f0[0] * f1[0] + f0[1] * f1[1] + f0[2] * f1[2]))) * R2D / ((now - prev.t) / 1000);
+    }
+    state.rate = state.rate == null ? rate : state.rate + 0.2 * (rate - state.rate);
+    if (e.webkitCompassHeading >= 0 && (state.northOffset == null || state.rate < STEADY_DEG_S)) {
       const target = compassOffset(alpha, beta, gamma, e.webkitCompassHeading, state.declination);
       if (target != null) {
         if (state.northOffset == null) state.northOffset = target;
         else {
           const d = wrap(target - state.northOffset);
-          // A big jump is a pose where the heading axis switched or flipped — ignore it, unless it persists.
-          if (Math.abs(d) > 60 && ++state.rejects < 45) { /* skip */ }
-          else { state.rejects = 0; state.northOffset = wrap(state.northOffset + (Math.abs(d) > 60 ? d : OFFSET_SMOOTH * d)); }
+          // A big disagreement that persists is real (frame re-zeroed); a brief one is heading lag.
+          if (Math.abs(d) > 40 && ++state.rejects < 20) { /* skip */ }
+          else { state.rejects = 0; state.northOffset = wrap(state.northOffset + (Math.abs(d) > 40 ? d : OFFSET_SMOOTH * d)); }
         }
       }
     }
@@ -104,7 +114,7 @@ function onEvent(e) {
 }
 
 export async function startOrientation(declinationDeg = 0) {
-  state.declination = declinationDeg; state.basis = null;
+  state.declination = declinationDeg; state.basis = null; state.northOffset = null; state.rejects = 0;
   const Evt = window.DeviceOrientationEvent;
   if (!Evt) return { ok: false, reason: 'unsupported' };
   if (typeof Evt.requestPermission === 'function') {
@@ -128,6 +138,6 @@ export function setTrim(deg) { state.trim = deg; }
 export function getTrim() { return state.trim; }
 // Snapshot for telemetry: last raw event + the fused state it produced.
 export function sensorDebug() {
-  return { raw: state.raw || null, northOffset: state.northOffset, rejects: state.rejects, trim: state.trim,
+  return { raw: state.raw || null, northOffset: state.northOffset, rejects: state.rejects, trim: state.trim, rate: state.rate,
     decl: state.declination, absolute: state.absolute, events: state.events, screen: screenAngle() };
 }
