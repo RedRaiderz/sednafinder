@@ -9,6 +9,6 @@ export async function renderLab() {
     <p class="kicker">SednaLab</p><h2 class="title">The experiments</h2>
     <p class="subtitle">Independent hobby tests on public telescope data, computed on Solace. Its own site, with its own red.</p>
     <div class="row"><span class="k">Reddest Worlds</span><span class="v">complete · Sedna #11 of 99</span></div>
-    <div class="row"><span class="k">Sedna's orbit</span><span class="v">next · simulation queued</span></div>
+    <div class="row"><span class="k">Sedna's orbit</span><span class="v">simulated · planets can't move her; a star or Planet Nine can</span></div>
     <div class="actions"><a class="solid" href="${LAB_URL}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">Open SednaLab</a></div>`;
 }
