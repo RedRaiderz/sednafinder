@@ -89,6 +89,10 @@ body.scope .reticle { display: none; }
 .ultra .u-scale.on { opacity: 1; }
 .ultra .u-ctl { position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 18px); display: flex; gap: 10px; align-items: center; }
 .ultra .u-ctl input { flex: 1; accent-color: #e0735f; }
+.app-switch { display: inline-flex; padding: 3px; margin-bottom: 14px; border-radius: 999px; border: 1px solid var(--line); font: 500 12.5px var(--sans); }
+.app-switch > * { padding: 6px 13px; border-radius: 999px; color: var(--dim); text-decoration: none; }
+.app-switch .on { background: var(--amber); color: #120b02; }
+.app-switch a:hover { color: #e5483a; }
 .aim-chip small { font: 400 11px var(--mono); color: var(--dim); margin-left: 8px; }
 .aim-chip::after { content: ' ›'; color: var(--amber); }
 .calib { position: fixed; left: 14px; right: 14px; top: calc(var(--top) + 76px); z-index: 6; background: var(--panel);
