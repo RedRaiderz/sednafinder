@@ -42,13 +42,22 @@ const yawOf = (v) => (Math.atan2(v[0], v[1]) * R2D + 360) % 360;
 // where the old "camera only while nearly upright" rule froze a stale offset whenever the phone
 // pointed more than ~27° up. Measure the same axis in the raw, arbitrarily-oriented alpha frame;
 // the offset is the difference. Pure, for tests.
-export function compassOffset(alphaDeg, betaDeg, gammaDeg, headingDeg, declinationDeg = 0) {
+// Near 45° (both axes about equally horizontal) iOS may be using either one, and the two readings
+// give offsets about 180° apart. There the offset already held picks the one it agrees with; with
+// nothing held, or neither within DEADZONE_TOL, it returns null. (Until 3.3.0 it always returned
+// null there, so aiming ~40-50° up -- the Moon on 2026-09-26 -- kept an offset learned in another
+// pose: 3.6° of that night's 10.8° azimuth error.)
+const DEADZONE_TOL = 45;
+export function compassOffset(alphaDeg, betaDeg, gammaDeg, headingDeg, declinationDeg = 0, heldDeg = null) {
   const { Y, Z } = deviceAxes(alphaDeg, betaDeg, gammaDeg);
   const cam = [-Z[0], -Z[1], -Z[2]];
   const hc = Math.hypot(cam[0], cam[1]), hy = Math.hypot(Y[0], Y[1]);
-  if (Math.abs(hc - hy) < 0.12) return null; // near 45°: iOS may be using either axis
-  const axis = hc > hy ? cam : Y;
-  return wrap(headingDeg + declinationDeg - yawOf(axis));
+  const offCam = wrap(headingDeg + declinationDeg - yawOf(cam)), offTop = wrap(headingDeg + declinationDeg - yawOf(Y));
+  if (Math.abs(hc - hy) >= 0.12) return hc > hy ? offCam : offTop;
+  if (heldDeg == null) return null;
+  const dc = Math.abs(wrap(offCam - heldDeg)), dt = Math.abs(wrap(offTop - heldDeg));
+  if (Math.min(dc, dt) > DEADZONE_TOL) return null;
+  return dc <= dt ? offCam : offTop;
 }
 
 // --- live sensor glue (browser only) ---
@@ -85,7 +94,7 @@ function onEvent(e) {
     }
     state.rate = state.rate == null ? rate : state.rate + 0.2 * (rate - state.rate);
     if (e.webkitCompassHeading >= 0 && (state.northOffset == null || state.rate < STEADY_DEG_S)) {
-      const target = compassOffset(alpha, beta, gamma, e.webkitCompassHeading, state.declination);
+      const target = compassOffset(alpha, beta, gamma, e.webkitCompassHeading, state.declination, state.northOffset);
       if (target != null) {
         if (state.northOffset == null) state.northOffset = target;
         else {
