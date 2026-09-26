@@ -140,6 +140,11 @@ export async function startOrientation(declinationDeg = 0) {
   return state.events > 0 ? { ok: true } : { ok: false, reason: 'no-sensor' };
 }
 
+// One-tap aim fix: with the reticle on a known body and the app's azimuth off by dAz (app minus true), the trim that
+// puts it right. The trim adds to every azimuth (yawBasis), so it moves by -dAz. Only azimuth: the tilt sensors set
+// altitude, and a compass trim cannot fix those.
+export function trimFromMark(trimDeg, dAzDeg) { return wrap(trimDeg - dAzDeg); }
+
 export function setDeclination(d) { state.declination = d; }
 export function getBasis() { return state.basis; }
 export function hasCompass() { return state.compass; }

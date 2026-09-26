@@ -56,6 +56,7 @@ body.camera #cam { opacity: 1; }
   border-radius: 3px; white-space: nowrap; }
 .mark-btn { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 76px); transform: translateX(-50%); z-index: 5;
   font: 500 14px var(--sans); padding: 11px 20px; background: var(--panel); color: var(--amber); outline: 1px solid var(--amber); border-radius: 3px; }
+.fix-aim { bottom: calc(env(safe-area-inset-bottom) + 128px); color: var(--ink, #06080f); background: var(--amber); outline: none; }
 /* ---------- telescope eyepiece ---------- */
 .eyepiece { display: none; position: fixed; inset: 0; z-index: 3; pointer-events: none;
   --d: min(90vw, 90vh);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cameraBasis, compassOffset, deviceAxes, yawBasis } from '../src/sensors/orientation.js';
+import { cameraBasis, compassOffset, deviceAxes, yawBasis, trimFromMark } from '../src/sensors/orientation.js';
 
 const az = (v) => (Math.atan2(v[0], v[1]) * 180 / Math.PI + 360) % 360;
 const near = (a, b, tol) => Math.abs(((a - b + 540) % 360) - 180) < tol;
@@ -65,4 +65,21 @@ test('real dead-zone frame on the Moon takes the fresh reading next to the held 
   assert.ok(near(off, -175.4, 10), `off ${off}`);
   const f = yawBasis(cameraBasis(a, b, g), off).f;
   assert.ok(near(az(f), 173.24, 8), `az ${az(f)}`);
+});
+
+// One-tap aim fix: the trim from a mark turns the camera's azimuth onto the body.
+test('trimFromMark puts the marked body on the reticle (sign)', () => {
+  const b = cameraBasis(40, 120, 3), camAz = az(b.f), bodyAz = camAz - 7.3; // app reads 7.3° too far east
+  const t = trimFromMark(0, camAz - bodyAz);
+  assert.ok(near(az(yawBasis(b, t).f), bodyAz, 1e-6));
+  assert.ok(near(trimFromMark(-2, 350 - 355), 3, 1e-9)); // wraps: dAz -5 from an existing -2 trim gives +3
+});
+
+// Replay of his 2026-09-26 session (app's own logged camera azimuths, 3.2.1): fixing the aim on the first Moon mark
+// cuts the second mark's error (13 s later) from 14.9° to 4.1°. What is left is the iOS heading drifting between them.
+test('fix on his first 09-26 Moon mark helps the second', () => {
+  const m1 = { cam: 184.02, moon: 173.24 }, m2 = { cam: 188.24, moon: 173.32 };
+  const t = trimFromMark(0, m1.cam - m1.moon);
+  const before = Math.abs(m2.cam - m2.moon), after = Math.abs(m2.cam + t - m2.moon);
+  assert.ok(before > 14 && after < 5, `before ${before} after ${after}`);
 });

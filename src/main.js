@@ -2,7 +2,7 @@ import { createModel, updateModel, enuFromAltAz, altAzFromEnu, attachDeepStars }
 import { basisFromAltAz, projScale, dot } from './sky/view.js';
 import { createRenderer, drawSky } from './sky/render.js';
 import { loadSatellites, satState, isSunlit } from './sky/sats.js';
-import { startOrientation, getBasis, hasCompass, setTrim, getTrim, setDeclination, sensorDebug, setSmoothing } from './sensors/orientation.js';
+import { startOrientation, getBasis, hasCompass, setTrim, getTrim, setDeclination, sensorDebug, setSmoothing, trimFromMark } from './sensors/orientation.js';
 import { startTelemetry, stopTelemetry, telemetryOn, telemetryStatus, sample, mark } from './sensors/telemetry.js';
 import magvar from '../vendor/magvar.js';
 import { startCamera, stopCamera } from './sensors/camera.js';
@@ -60,7 +60,7 @@ async function boot() {
   if (S.telemetry) startTelemetry().then(updateMarkBtn);
 }
 boot();
-export const APP_VERSION = '3.3.0';
+export const APP_VERSION = '3.3.1';
 window.sf = { st, S }; // handy from the console
 
 function currentDate() { return st.live ? new Date() : st.fixed; }
@@ -222,7 +222,18 @@ function telemetryFrame(view) {
     sensor: sensorDebug(), loc: { lat: st.loc.lat, lon: st.loc.lon, label: st.loc.label },
     aimed: aimed ? label(aimed) : null, target: st.target ? label(st.target) : null, bodies: bodiesUp() };
 }
-function updateMarkBtn() { $('markBtn').classList.toggle('hidden', !(telemetryOn() && st.mode === 'ar')); }
+// "I'm on it" shows in AR whether or not telemetry is on: it is also the one-tap aim fix (since 3.3.1).
+function updateMarkBtn() { $('markBtn').classList.toggle('hidden', st.mode !== 'ar'); if (st.mode !== 'ar') hideFixAim(); }
+const FIX_MAX_SEP = 25; // farther than this from every body, the reticle is probably not on one: offer no fix
+let fixTimer = 0, fixPending = null;
+function hideFixAim() { $('fixAimBtn').classList.add('hidden'); fixPending = null; clearTimeout(fixTimer); }
+$('fixAimBtn').addEventListener('click', () => {
+  if (!fixPending) return;
+  const before = getTrim();
+  S.trim = trimFromMark(before, fixPending.dAz); setTrim(S.trim); saveSettings();
+  toast(`Aim corrected ${fixPending.dAz >= 0 ? '−' : '+'}${Math.abs(fixPending.dAz).toFixed(1)}° on ${fixPending.name}. Setup → Reset undoes it.`);
+  hideFixAim();
+});
 $('markBtn').addEventListener('click', () => {
   const view = currentView(); if (!model) return;
   // Nearest solar-system body to the reticle is almost certainly what the user lined up.
@@ -232,7 +243,14 @@ $('markBtn').addEventListener('click', () => {
   const err = best ? { name: best.name, sep: r2(bd), dAz: r2(((cam.az - best.az + 540) % 360) - 180), dAlt: r2(cam.alt - best.alt) } : null;
   mark({ t: Date.now(), cam, fov: r2(view.fov), sensor: sensorDebug(), bodies: bodiesUp(), nearest: err, frame: telemetryFrame(view) });
   if (navigator.vibrate) navigator.vibrate(20);
-  toast(err ? `Marked ${err.name}: app is off by ${err.sep.toFixed(1)}° (az ${err.dAz >= 0 ? '+' : ''}${err.dAz.toFixed(1)}°, alt ${err.dAlt >= 0 ? '+' : ''}${err.dAlt.toFixed(1)}°)` : 'Marked.');
+  toast(err ? `${err.name}: app is off by ${err.sep.toFixed(1)}° (az ${err.dAz >= 0 ? '+' : ''}${err.dAz.toFixed(1)}°, alt ${err.dAlt >= 0 ? '+' : ''}${err.dAlt.toFixed(1)}°)` : 'Marked.');
+  hideFixAim();
+  if (err && err.sep <= FIX_MAX_SEP && Math.abs(err.dAz) >= 0.5) {
+    fixPending = err;
+    $('fixAimBtn').textContent = `Fix my aim (${err.dAz >= 0 ? '−' : '+'}${Math.abs(err.dAz).toFixed(1)}°)`;
+    $('fixAimBtn').classList.remove('hidden');
+    fixTimer = setTimeout(hideFixAim, 10000);
+  }
 });
 
 // ---------- AR aiming ----------
