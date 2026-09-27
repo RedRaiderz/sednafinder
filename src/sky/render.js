@@ -4,9 +4,9 @@ import { project, projectArr, projScale, screenDirection } from './view.js';
 import { enuFromAltAz } from './model.js';
 
 const D2R = Math.PI / 180;
-const FONT_UI = '"IBM Plex Sans", system-ui, sans-serif';
-const FONT_SERIF = '"Newsreader", Georgia, serif';
-const FONT_MONO = '"IBM Plex Mono", ui-monospace, monospace';
+const FONT_UI = '"Geist", "Helvetica Neue", system-ui, sans-serif';
+const FONT_SERIF = FONT_UI; // 3.4: no serif; constellation names are small tracked caps instead
+const FONT_MONO = '"Geist Mono", ui-monospace, monospace';
 
 // B-V colour index -> star tint. Kept desaturated: real stars are subtle.
 function starColor(ci) {
@@ -45,7 +45,7 @@ export function drawSky(R, model, view, opts, hits) {
   // ---- sky wash (skipped over the camera feed) ----
   if (!ar) {
     const day = smooth(-18, 6, sunAlt);
-    const top = mix([6, 8, 16], [38, 72, 122], day), bottom = mix([12, 16, 28], [120, 160, 200], day);
+    const top = mix([8, 8, 10], [38, 72, 122], day), bottom = mix([24, 20, 16], [120, 160, 200], day); // night: neutral black to a warm horizon
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, rgb(top)); g.addColorStop(1, rgb(bottom));
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
@@ -61,7 +61,7 @@ export function drawSky(R, model, view, opts, hits) {
 
   // ---- constellations ----
   if (opts.constellations) {
-    ctx.lineWidth = 1; ctx.strokeStyle = ar ? 'rgba(200,215,255,0.45)' : 'rgba(150,172,214,0.30)';
+    ctx.lineWidth = 1; ctx.strokeStyle = ar ? 'rgba(226,220,208,0.42)' : 'rgba(205,198,186,0.22)';
     ctx.beginPath();
     const a = {}, b = {};
     for (const c of model.cons) for (const seg of c.lines) {
@@ -296,8 +296,8 @@ function drawHorizon(ctx, view, W, H, s, ar, sunAlt) {
   const cx = W / 2, cy = H / 2;
   ctx.save();
   // Translucent so everything below the horizon stays visible, just dimmed.
-  ctx.fillStyle = ar ? 'rgba(10,12,14,0.3)' : rgba(mix([9, 11, 12], [34, 40, 38], smooth(-12, 6, sunAlt)), 0.55);
-  ctx.strokeStyle = ar ? 'rgba(242,180,90,0.7)' : 'rgba(242,180,90,0.45)'; ctx.lineWidth = 1;
+  ctx.fillStyle = ar ? 'rgba(11,10,9,0.3)' : rgba(mix([11, 10, 9], [34, 40, 38], smooth(-12, 6, sunAlt)), 0.6);
+  ctx.strokeStyle = ar ? 'rgba(244,179,94,0.6)' : 'rgba(255,255,255,0.16)'; ctx.lineWidth = 1;
   const stereoCircle = view.proj === 'stereo' && Math.abs(Uz) > 1e-4 && 2 / Math.abs(Uz) * s < 1e5;
   if (stereoCircle) {
     const ccx = cx + (2 * Ux / Uz) * s, ccy = cy - (2 * Uy / Uz) * s, rad = (2 / Math.abs(Uz)) * s;
@@ -342,20 +342,24 @@ function drawLabels(ctx, labels, W, H) {
   for (const l of labels) {
     ctx.globalAlpha = l.u < -0.005 ? 0.5 : 1; // under the ground: still shown, dimmed
     const big = l.kind === 'planet' || l.kind === 'moon' || l.kind === 'sun' || l.kind === 'polaris';
-    ctx.font = l.kind === 'con' ? `italic 400 ${l.fov > 100 ? 12 : 14}px ${FONT_SERIF}` : big ? `500 13px ${FONT_UI}` : l.kind === 'dso' ? `400 10px ${FONT_MONO}` : `400 11.5px ${FONT_UI}`;
-    const w = ctx.measureText(l.text).width, h = 13;
+    ctx.font = l.kind === 'con' ? `400 ${l.fov > 100 ? 9.5 : 10.5}px ${FONT_MONO}` : big ? `500 13px ${FONT_UI}` : l.kind === 'dso' ? `400 10px ${FONT_MONO}` : `400 11.5px ${FONT_UI}`;
+    // constellation names: small tracked caps (letterSpacing where the canvas supports it; plain caps elsewhere)
+    const text = l.kind === 'con' ? l.text.toUpperCase() : l.text;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = l.kind === 'con' ? '0.26em' : '0px';
+    const w = ctx.measureText(text).width, h = 13;
     if (l.center) l.x -= w / 2;
     const box = { x0: l.x - 1, y0: l.y - h + 2, x1: l.x + w + 1, y1: l.y + 3 };
     if (box.x1 < 0 || box.x0 > W || box.y1 < 0 || box.y0 > H) continue;
     if (placed.some((p) => !(box.x1 < p.x0 || box.x0 > p.x1 || box.y1 < p.y0 || box.y0 > p.y1))) continue;
     placed.push(box);
-    ctx.fillStyle = l.kind === 'con' ? (l.ar ? 'rgba(210,222,255,0.75)' : 'rgba(170,188,224,0.72)') : l.kind === 'tno' || l.kind === 'polaris' ? '#f2b45a' : l.kind === 'sat' ? 'rgba(160,230,220,0.95)'
+    ctx.fillStyle = l.kind === 'con' ? (l.ar ? 'rgba(222,216,204,0.72)' : 'rgba(170,165,156,0.7)') : l.kind === 'tno' || l.kind === 'polaris' ? '#f2b45a' : l.kind === 'sat' ? 'rgba(160,230,220,0.95)'
       : l.kind === 'dso' ? 'rgba(200,185,240,0.75)' : big ? 'rgba(248,242,228,0.95)' : 'rgba(225,230,240,0.7)';
     // Dark halo so lines and stars never run through the letters (star-atlas style).
-    ctx.lineJoin = 'round'; ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(6,8,15,0.92)';
-    ctx.strokeText(l.text, l.x, l.y);
-    ctx.fillText(l.text, l.x, l.y);
+    ctx.lineJoin = 'round'; ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(9,9,10,0.92)';
+    ctx.strokeText(text, l.x, l.y);
+    ctx.fillText(text, l.x, l.y);
   }
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   ctx.globalAlpha = 1;
 }
 

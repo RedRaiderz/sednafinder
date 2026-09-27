@@ -60,7 +60,7 @@ async function boot() {
   if (S.telemetry) startTelemetry().then(updateMarkBtn);
 }
 boot();
-export const APP_VERSION = '3.3.1';
+export const APP_VERSION = '3.4.0';
 window.sf = { st, S }; // handy from the console
 
 function currentDate() { return st.live ? new Date() : st.fixed; }
@@ -90,14 +90,14 @@ async function enterAR(withCamera) {
       : 'This device has no motion sensors — the chart still works, drag to look around.');
     return false;
   }
-  st.mode = 'ar'; st.tween = null; keepAwake(true);
+  st.mode = 'ar'; st.tween = null; keepAwake(true); document.body.classList.add('ar');
   $('btnAR').classList.add('on'); $('reticle').classList.remove('hidden'); updateMarkBtn();
   setTimeout(() => { if (st.mode === 'ar' && !hasCompass()) toast('No compass reported — directions may drift. Use Setup → Calibrate.'); }, 1500);
   if (withCamera) await setCamera(true);
   return true;
 }
 function exitAR() {
-  st.mode = 'chart'; $('btnAR').classList.remove('on'); $('reticle').classList.add('hidden'); $('aimChip').classList.add('hidden');
+  st.mode = 'chart'; document.body.classList.remove('ar'); $('btnAR').classList.remove('on'); $('reticle').classList.add('hidden'); $('aimChip').classList.add('hidden');
   const b = getBasis(); if (b) { const { alt, az } = altAzFromEnu(b.f); st.chart.alt = alt; st.chart.az = az; }
   setCamera(false); endCalibrate(); keepAwake(false); updateMarkBtn();
 }
@@ -184,7 +184,16 @@ function frame(t) {
   const view = currentView();
   drawSky(R, model, view, { ...S, camera: st.camera && !st.scope, telescope: st.scope, target: st.target }, hits);
   if (st.mode === 'ar') { updateAim(view); sample(t, () => telemetryFrame(view)); }
-  if (t - lastClock > 500) { lastClock = t; updateClock(date); }
+  if (t - lastClock > 500) { lastClock = t; updateClock(date); if (!$('intro').classList.contains('gone')) updateIntro(); }
+}
+
+// Intro hero: Sedna's distance and light-time right now, from the same model the chart draws.
+function updateIntro() {
+  const sed = model.tnos.find((x) => x.name === 'Sedna'); if (!sed || !sed.distAU) return;
+  const s = sed.distAU * 499.004784, h = Math.floor(s / 3600), m = Math.round((s - h * 3600) / 60);
+  $('introDist').textContent = sed.distAU.toFixed(2);
+  $('introLt').textContent = `Its light left ${h} h ${m} m ago.`;
+  $('introVer').textContent = 'v' + APP_VERSION;
 }
 
 function updateSats(date, t) {

@@ -178,7 +178,7 @@ function drawPath(ctx, proj, W, H, fov, alpha) {
   ctx.setLineDash([]);
   // Year ticks every 5 years when the path is readable at this zoom.
   if (fov > 0.4) {
-    ctx.font = '400 10.5px "IBM Plex Mono", monospace'; ctx.textAlign = 'center';
+    ctx.font = '400 10.5px "Geist Mono", monospace'; ctx.textAlign = 'center';
     for (const p of ui.path) {
       const yr = 1970 + (p.jd - 2440587.5) / 365.25;
       const frac = yr - Math.floor(yr);
@@ -201,7 +201,7 @@ function drawSedna(ctx, cx, cy, rPx, t) {
     ctx.fillStyle = `rgba(236,110,92,${markerA})`; ctx.beginPath(); ctx.arc(cx, cy, 2.6, 0, 7); ctx.fill();
     ctx.strokeStyle = `rgba(242,180,90,${0.7 * markerA})`; ctx.lineWidth = 1.2; ctx.setLineDash([2, 3]);
     ctx.beginPath(); ctx.arc(cx, cy, 11, 0, 7); ctx.stroke(); ctx.setLineDash([]);
-    ctx.font = '500 12px "IBM Plex Sans", sans-serif'; ctx.fillStyle = `rgba(242,180,90,${0.9 * markerA})`;
+    ctx.font = '500 12px "Geist", sans-serif'; ctx.fillStyle = `rgba(242,180,90,${0.9 * markerA})`;
     ctx.fillText('Sedna', cx + 16, cy + 4);
   }
   if (rPx > 3) {
